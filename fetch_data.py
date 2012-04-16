@@ -4,87 +4,20 @@ import os.path
 import logging
 import sys
 from optparse import OptionParser
+import re
+import csv
 
 # 1. do search on dressage disipline
 # 2. get number of page results
-# 3. search with increment 'ctl00$PlaceHolderBottom$wcResult$gvcRes':'Page$8'
-# 4. for each event find right competitions
+# 3. search with increment 'ctl00$PlaceHolderBottom$wcResult$gvcRes':'Page$X'
+# 4. for each event find competitions
 # 5. find competitors and judges for each event
 # 6. find gender of competitors and judges
 # 7. output in cvs file
 
-#def search():
+SEARCH_URL = 'https://data.fei.org/Calendar/Search.aspx?resultMode=true'
 
-START_URL = 'http://search.fei.org/Search_Centre/Result/Pages/Search.aspx?resultMode=true'
-    
-
-def fetch(url):
-    
-    br = mechanize.Browser()
-    r = br.open(url)
-    
-    html = r.read()
-    
-    #print html
-    
-    #print br.title()
-    
-    #for f in br.forms():
-    #    print f
-    
-    br.select_form(nr=0)
-    
-    br.form['ctl00$PlaceHolderMain$ddlCritDisciplines']=['2']
-    
-    br.submit()
-    
-    # get nr of result pages
-    
-    initialresp = br.response().read()
-    
-    soup = BeautifulSoup( initialresp )
-    
-    pagecount = int(soup.select(".pager")[0].contents[1].table.td.text.split(" ")[0])
-    
-    #print soup.select(".pager")[0].contents[1].table.td.text.split(" ")[5]
-    
-    print pagecount
-    
-    # get rows
-    
-    firstrows = soup.select(".row")
-    secondrows = soup.select(".altrow")
-    
-    rows = firstrows + secondrows
-    
-    for row in rows:
-        if row.contents[5].a:
-            
-            entry = {'city':row.contents[1].a['title'],'country':row.contents[2].contents[0],'link':row.contents[5].a['href']}
-            
-    #        print row.contents[1].a['title']
-    #        print row.contents[2].contents[0]
-    #        print row.contents[5].a['href']
-    
-    #for item in pager:
-    #    print item.contents
-    
-    #print pager.contents
-    
-    #print table
-    
-    #print soup.title
-    
-    #br.select_form(name="aspnetForm")
-    #br.set_value("2",name="ctl00$PlaceHolderMain$ddlCritDisciplines")
-    #response = br.submit()
-    
-    #print br.form
-    
-    #print br.title
-    
-    print "Page$"+str(8)
-
+# APPROVED
 def events( uri, count ):
     
     evts = []
@@ -93,33 +26,13 @@ def events( uri, count ):
         evts += event( uri, i )
     
     return evts
-    
+
+# APPROVED
 def event( url, page ):
     
-    # 3. search with increment 'ctl00$PlaceHolderBottom$wcResult$gvcRes':'Page$8'
+    response = search(url, page)
     
-    print 'fetching page %s' % (page)
-    
-    br = mechanize.Browser()
-    
-    r = br.open(url)
-    
-    html = r.read()
-    
-    br.select_form(nr=0)
-
-    br.form['ctl00$PlaceHolderMain$ddlCritDisciplines']=['2']
-    pageid = "Page$"+str(page)
-    
-    br.form.new_control('text', 'ctl00$PlaceHolderBottom$wcResult$gvcRes', {'value':''})
-    br.form.fixup()
-    br.form['ctl00$PlaceHolderBottom$wcResult$gvcRes']=pageid
-    
-    br.submit()
-    
-    resp = br.response().read()
-
-    soup = BeautifulSoup( resp )
+    soup = BeautifulSoup( response )
     
     firstrows = soup.select(".row")
     secondrows = soup.select(".altrow")
@@ -129,82 +42,76 @@ def event( url, page ):
     results = []
     
     for row in rows:
-        if row.contents[5].a:
-            #print row.contents[1].a['title']
-            #print row.contents[5].a['href']
+        
+        # check if there is any links for this event
+        links = row.contents[5].find_all('a')
+        country = row.contents[2].contents[0]
+        
+        if len(links) > 0:
             
-            results.append({'title':row.contents[1].a['title'], 'url':row.contents[5].a['href']})
+            urls = []
+            
+            for link in links:
+                 urls.append({'title':link.contents[0].strip(), 'url':link['href']} )
+            
+            results.append({'title':row.contents[1].a['title'], 'country': country, 'urls': urls })
     
+    print "fetched -> %s on page %d" % ( url, page )
     
     return results
 
 def pagecount(url):
     
-    br = mechanize.Browser()
+    response = search(url)
     
-    br.open(url)
+    soup = BeautifulSoup( response )
     
-    br.select_form(nr=0)
-
-    br.form['ctl00$PlaceHolderMain$ddlCritDisciplines']=['2']
-
-    br.submit()
-
-    # get nr of result pages
-
-    initialresp = br.response().read()
-
-    soup = BeautifulSoup( initialresp )
-
-    #eventcount = int(soup.select(".pager")[0].contents[1].table.td.text.split(" ")[0])
-    pagecount = int(soup.select(".pager")[0].contents[1].table.td.text.split(" ")[5])
+    # filter out the page count
+    pagecount = int(soup.select(".pager")[0].contents[1].table.td.text.split(" ")[0])
     
     return pagecount
     
-    
+# TODO
 def competitions( url ):
     
-    br = mechanize.Browser()
+    br = browse(url)
     
-    r = br.open(url)
+    response = br.response().read()
     
-    html = r.read()
+    soup = BeautifulSoup(response)
     
-    soup = BeautifulSoup(html)
+    tds = soup.select(".entrycrit")[0].find_all("td")
+    
+    info = { 'venue': tds[1].contents[0].strip(), 'nf': tds[6].contents[0].strip(), 'type': tds[8].contents[0].strip(), 'discipline': tds[10].contents[0].strip(), 'category':tds[12].contents[0].strip(), 'start_date': tds[16].contents[0].strip(), 'end_date' : tds[16].contents[2].strip(), 'indoor': tds[18].contents[0].strip(), 'code': tds[20].contents[0].strip(), 'prize_money': tds[32].contents[0].strip() }
+    
+    #print info
+    
+    #for i in range(0, len(tds)):
+    #    if len(tds[i].contents[0].strip()) > 0:
+    #        print "%d - %s" % (i, tds[i].contents[0].strip())
     
     firstrows = soup.select(".row")
     secondrows = soup.select(".altrow")
     
     rows = firstrows + secondrows
     
+    results = []
+    
     for row in rows:
-        #if row.contents[5].a:
         
-        #title
-        #print row.contents[3].span['title']
-        #date
-        #print row.contents[4].contents[0]
-        if row.contents[7].a:
-  
-            javascript = row.contents[7].a['href'].split('"')
-            print javascript[1] # so this is the postback
-        #    print row.contents[7].a['href']
-        #print row.contents[5].a['href']
+        links = row.contents[7].find_all('a')
+        
+        if len(links) > 0:
             
-    return None
+            javascript = row.contents[7].a['href'].split('"')
+            
+            results.append( { 'url': url, 'page': javascript[1] } )
+            
+    return { 'info': info, 'competitions': results }
 
 def results( url, page ):
     
-    logger = logging.getLogger("mechanize")
-    logger.addHandler(logging.StreamHandler(sys.stdout))
-    logger.setLevel(logging.INFO)
-    
-    br = mechanize.Browser()
-    br.addheaders = [('User-agent', 'Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.0.1) Gecko/2008071615 Fedora/3.0.1-1.fc9 Firefox/3.0.1')]
-    
-    br.set_debug_redirects(True)
-    br.set_handle_redirect(True)
-    br.open(url)
+    br = browse(url)
     
     br.select_form(nr=0)
     br.set_all_readonly(False)
@@ -215,43 +122,33 @@ def results( url, page ):
     br.find_control("ctl00$PlaceHolderMain$btnReset").disabled = True
     
     br.submit()
-
+    
     # get result page
-
-    initialresp = br.response().read()
-
-    soup = BeautifulSoup( initialresp )
+    response = br.response().read()
     
-    print soup.title.contents[0].strip()
+    soup = BeautifulSoup( response )
     
-    ## get table row titles
+    tds = soup.select(".entrycrit")[0].find_all("td")
     
-    headers = []
+    judge_e = { 'firstname': tds[17].contents[0].strip(), 'lastname': tds[18].contents[0].strip(), 'country': parse_country(tds[19].contents[0].strip()) }
+    judge_h = { 'firstname': tds[22].contents[0].strip(), 'lastname': tds[23].contents[0].strip(), 'country': parse_country(tds[24].contents[0].strip()) }
+    judge_c = { 'firstname': tds[27].contents[0].strip(), 'lastname': tds[28].contents[0].strip(), 'country': parse_country(tds[29].contents[0].strip()) }
+    judge_m = { 'firstname': tds[32].contents[0].strip(), 'lastname': tds[33].contents[0].strip(), 'country': parse_country(tds[34].contents[0].strip()) }
+    judge_b = { 'firstname': tds[37].contents[0].strip(), 'lastname': tds[38].contents[0].strip(), 'country': parse_country(tds[39].contents[0].strip()) }
     
-    columns = soup.select(".headerr")
+    info = { 'competition_nr': tds[4].contents[0].strip(), 'rule': tds[6].contents[0].strip(), 'name': tds[8].contents[0].strip(), 'date': tds[10].contents[0].strip(), 'prize_money': tds[12].contents[0].strip(), 'judge_e': judge_e, 'judge_h': judge_h ,'judge_c': judge_c, 'judge_m': judge_m, 'judge_b': judge_b }
     
-    for column in columns:
-        name = column.contents[0].strip()
-        if len(name) != 0:
-            print name
+    print info
     
-    ## get judges
+    #print tds[18].contents[0].strip()
     
-    #PlaceHolderMain_fvDetail_ucDressageJudges_panJudges
+    #for i in range(0, len(tds)):
+    #    if len(tds[i].contents[0].strip()) > 0:
+    #        print "%d - %s" % (i, tds[i].contents[0].strip())
     
-    judges = soup.find(id='PlaceHolderMain_fvDetail_ucDressageJudges_panJudges')
+    # get table results
     
-    tds = judges.find_all('td')
-    
-    for td in tds:
-        print td
-    
-    #print judges.td
-    
-    
-    ## get table results
-    
-    results = []
+    competitors = []
     
     firstrows = soup.select(".row")
     secondrows = soup.select(".altrow")
@@ -260,19 +157,97 @@ def results( url, page ):
     
     for row in rows:
         
-        print row.contents[1].a['title'] # position
-        print row.contents[3].a.contents[0].strip() # competitor
-        print row.contents[4].a.contents[0].strip() # horse 
-        print row.contents[5].contents[0].strip() # prize money 
+        #print row.contents[1].a['title'] # position
+        #print row.contents[3].a.contents[0].strip().encode('utf-8')  # competitor
         
-        print row.contents[7].contents[0].strip()
-        print row.contents[8].contents[0].strip()
-        print row.contents[9].contents[0].strip()
-        print row.contents[10].contents[0].strip()
+        rider = parse_name(row.contents[3].a.contents[0].strip())
+        
+        #print row.contents[4].a.contents[0].strip() # horse 
+        #print row.contents[5].contents[0].strip() # prize money 
+        #print row.contents[6].contents[0].strip() # judge e 
+        #print row.contents[7].contents[0].strip() # judge h
+        #print row.contents[8].contents[0].strip() # judge c
+        #print row.contents[9].contents[0].strip() # judge m
+        #print row.contents[10].contents[0].strip() # judge b
         #print row.contents[11].contents[0].strip()
-        print row.contents[12].contents[0].strip()
+        #print row.contents[12].contents[0].strip() # score
+        
+        competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': row.contents[4].a.contents[0].strip(), 'prize_money': row.contents[5].contents[0].strip(), 'judge_e_score': row.contents[6].contents[0].strip(), 'judge_e_tech': row.contents[6].contents[0].strip(), 'judge_e_art': row.contents[6].contents[0].strip(), 'judge_h_score': row.contents[7].contents[0].strip(), 'judge_h_tech': row.contents[7].contents[0].strip(), 'judge_h_art': row.contents[7].contents[0].strip(), 'judge_c_score': row.contents[8].contents[0].strip(), 'judge_c_tech': row.contents[8].contents[0].strip(), 'judge_m_score': row.contents[9].contents[0].strip(), 'judge_m_tech': row.contents[9].contents[0].strip(), 'judge_m_art': row.contents[9].contents[0].strip(), 'judge_b_score': row.contents[10].contents[0].strip(), 'judge_b_tech': row.contents[10].contents[0].strip(), 'judge_b_art': row.contents[10].contents[0].strip(), 'score': row.contents[12].contents[0].strip() })
+        
+        #print competitors
     
-    return None
+    
+    return { 'info': info, 'competitors': competitors }
+
+# APPROVED
+def parse_name(name):
+    
+    parts = name.split(" ")
+    
+    return { 'firstname': parts[0], 'lastname': " ".join(parts[1:-1]), 'country': parse_country(parts[-1]) }
+
+# APPROVED
+def parse_country(country):
+    
+    return country.replace("(", "").replace(")", "")
+
+# APPROVED
+def browse(url):
+    
+    br = mechanize.Browser()
+    br.addheaders = [('User-agent', 'Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.0.1) Gecko/2008071615 Fedora/3.0.1-1.fc9 Firefox/3.0.1')]
+    
+    br.set_debug_redirects(True)
+    br.set_handle_redirect(True)
+    br.open(url, "rt")
+    
+    return br
+
+# APPROVED
+def search(url, offset=0):
+    
+    br = browse(url)
+    
+    br.select_form(nr=0)
+    br.set_all_readonly(False) 
+    
+    # select the right discipline select box 'Dressage'
+    br.form['ctl00$PlaceHolderMain$ddlCritDisciplines']=['2']
+    
+    br.find_control("ctl00$PlaceHolderMain$btnReset").disabled = True
+
+    br.submit()
+    
+    br.select_form(nr=0)
+    br.set_all_readonly(False) 
+    
+    # select the right rider category 'Senior Rider'
+    br.form['ctl00$PlaceHolderMain$ddlCritCategories'] =['1'] 
+    br.find_control("ctl00$PlaceHolderMain$btnReset").disabled = True
+    
+    
+        
+    #    br.submit()
+    #else:
+        # simulate search click
+    br.submit(name="ctl00$PlaceHolderMain$btnSearch")
+    
+    # if we need to offset search results, add that option
+    if offset > 0:
+        pageid = "Page$"+str(offset)
+        
+        br.select_form(nr=0)
+        br.set_all_readonly(False)
+    
+        br.form.new_control('text', 'ctl00$PlaceHolderBottom$wcResult$gvcRes', {'value':''})
+        br.form.fixup()
+        br.form['ctl00$PlaceHolderBottom$wcResult$gvcRes']=pageid
+        
+        br.submit()
+    
+    response = br.response().read()
+    
+    return response
 
 def judgegender( url, judges ):
     return None
@@ -280,24 +255,35 @@ def judgegender( url, judges ):
 def ridergender( url, judges ):
     return None
 
-def saveoutput( result, file ):
+def saveresult( result, file='test.csv' ):
     
+    writer = csv.writer(open(file, 'wb'), delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(['Spam', 'Lovely Spam', 'Wonderful Spam'])
     
     return None
 
 def main():
     
-    #myevents = events( START_URL, pagecount(START_URL) )
+    count = pagecount(SEARCH_URL)
     
-    #print len(myevents)
+    myevent = event(SEARCH_URL, 2)
     
-    #mycompetitions = competitions( "http://search.fei.org/Search_Centre/Calendar/Pages/EventDetail.aspx?p=A7875F775FD231321FD325260B54B2EE" )
+    for evt in myevent:
+        print evt['title'].encode('utf-8')
     
-    #https://data.fei.org/Calendar/EventDetail.aspx?p=110BD1B7EAB6F342BA1E0ED0CD48D802
-    mycompetitions = results( "https://data.fei.org/Calendar/EventDetail.aspx?p=110BD1B7EAB6F342BA1E0ED0CD48D802", "ctl00$PlaceHolderMain$gvCompetitions$ctl04$lbIndivResults" )
+    #print myevent[0]['urls'][0]['url']
     
-    #for evt in myevents:
-    #    print evt.title
+    #mycomps = competitions(myevent[0]['urls'][0]['url'])
+    
+    #print mycomps['info']
+    
+    #mycomps = competitions("https://data.fei.org/Calendar/EventDetail.aspx?p=6FABEE84DFB9A49A89CC21BD08A37D0C")
+    
+    #results(mycomps['competitions'][0]['url'], mycomps['competitions'][0]['page'])
+    
+   #for comp in mycomps:
+   #     print "%s - %s" % (comp['url'], comp['page'])
+   #     results()
     
 if __name__ == "__main__":
     main()
