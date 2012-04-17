@@ -19,11 +19,15 @@ import time
 
 SEARCH_URL = 'https://data.fei.org/Calendar/Search.aspx?resultMode=true'
 JUDGE_URL = 'https://data.fei.org/Person/Search.aspx'
+PERSON_URL = 'https://data.fei.org/Person/'
+
+RIDERS = []
+JUDGES = []
 
 """
-events[title, country, urls, competitions]
-    competitions[info, competitions]
-        competitions[info, competitors]
+events[title, country, urls, competitions[]]
+    competitions[info, competitions[]]
+        competitions[info, competitors[], judges[]]
             competitors[position, firstname, ...]
 """
 # APPROVED
@@ -171,7 +175,9 @@ def results( url, page ):
         currentjudge['firstname'] = tds[index+1].contents[0].strip()
         currentjudge['lastname'] = tds[index+2].contents[0].strip()
         currentjudge['country'] = parse_country(tds[index+3].contents[0].strip()) 
-    
+        currentjudge['details'] = search_judge(currentjudge['firstname'], currentjudge['lastname'] )
+        
+        #print currentjudge['details']
     
     tds = soup.select(".entrycrit")[0].findAll("td")
     
@@ -233,11 +239,23 @@ def parse_name(name):
     
     return { 'firstname': parts[0], 'lastname': " ".join(parts[1:-1]), 'country': parse_country(parts[-1]) }
 
+def parse_judge_name(name):
+    parts = name.split(", ")
+    
+    return {'firstname': parts[1], 'lastname': parts[0]}
+    
+
 # APPROVED
 def parse_country(country):
     
     return country.replace("(", "").replace(")", "")
 
+def parse_dof(dof):
+    
+    parts = dof.split("/")
+    
+    return {'d': parts[0],'m': parts[1],'y': parts[2] }
+    
 # APPROVED
 def browse(url):
     
@@ -262,11 +280,7 @@ def fetch_rider_details(url):
     
     secondtds = soup.find(id='PlaceHolderMain_fvDetail_panMain').select(".formright")[0].find_all("td")
     
-    dof = secondtds[3].contents[0].strip().split("/")
-    
-    details['dof']['d'] = dof[0]
-    details['dof']['m'] = dof[1]
-    details['dof']['y'] = dof[2]
+    details['dof'] = parse_dof(secondtds[3].contents[0].strip())
     
     details['nf'] = secondtds[12].div.contents[0].strip()
     details['competingfor'] = soup.find(id='PlaceHolderMain_fvDetail_panCompetitor').select(".formleft")[0].find_all("td")[1].contents[0].strip()
@@ -274,9 +288,34 @@ def fetch_rider_details(url):
     
     print details
     
+    RIDERS.append(details)
+    
     return details
 
-def fetch_judge_details(judge):
+# APPROVED
+def fetch_judge_details( url ):
+    
+    br = browse(url)
+    
+    response = br.response().read()
+    
+    soup = BeautifulSoup(response)
+    
+    firstds = soup.find(id='PlaceHolderMain_fvDetail_panMain').findAll('td')
+    
+    #for i in range(0, len(firstds)):
+    #    print "%d - %s" % (i,firstds[i] )
+        
+    dof = parse_dof( firstds[17].contents[0].strip() )
+    
+    details = {'id': firstds[1].contents[0].strip(), 'gender': firstds[3].contents[0].strip(), 'lastname': firstds[7].input['title'], 'firstname': firstds[9].input['title'], 'nationality': firstds[13].contents[0].strip(), 'dof': dof, 'nf': firstds[26].div.contents[0].strip() }
+    
+    JUDGES.append(details)
+    
+    return details
+    
+
+def search_judge(firstname, lastname):
     
     br = browse(JUDGE_URL)
     
@@ -295,7 +334,7 @@ def fetch_judge_details(judge):
     
     # select the right rider category 'Senior Rider'
     br.form['ctl00$PlaceHolderMain$ddlCritFunctions'] =['3']
-    br.form['ctl00$PlaceHolderMain$txtCritName'] = judge;
+    br.form['ctl00$PlaceHolderMain$txtCritName'] = lastname;
     br.find_control("ctl00$PlaceHolderMain$btnReset").disabled = True
     
     # simulate search click
@@ -305,17 +344,19 @@ def fetch_judge_details(judge):
     
     soup = BeautifulSoup(response)
     
-    print soup.title
-    
     firstrows = soup.select(".row")
     secondrows = soup.select(".altrow")
     
     rows = firstrows + secondrows
     
     for row in rows:
-        print row.td
+        option = parse_judge_name(row.a['title'])
+        if option['firstname'] == firstname:
+            option['id'] = row.span.contents[0];
+            
+            return fetch_judge_details("%s%s" % (PERSON_URL,row.a['href']))
     
-    return {}
+    return {'id': '', 'gender': '', 'lastname': lastname, 'firstname': firstname, 'nationality': '', 'dof': '', 'nf': '' }
 
 # APPROVED
 def search(url, offset=0):
@@ -367,20 +408,47 @@ def judgegender( url, judges ):
 def ridergender( url, judges ):
     return None
 
-def saveriders( result, file='output/riders.csv' ):
+def saveresults( result, file='output/results.csv' ):
     
     writer = csv.writer(open(file, 'wb'), delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
     writer.writerow(['Event Venue', 'Event NF', 'Event Show Type', 'Event Discipline', 'Event Category', 'Event Starting Date', 'Event End Date', 'Event Indoor', 'Event code', 'Event Prize Money', 'Event Prize Money(CHF)', 'Competition Nr.', 'Competition Rule', 'Competition Name', 'Competition Date', 'Competition Prize Money','Competition Prize Money (CHF)', 'Judge Position', 'Judge First Name', 'Judge Family Name', 'Judge NF', 'Rider Final Position', 'Rider First Name', 'Rider Family Name', 'Rider NF', 'Horse Name', 'Rider Prize Money', 'Rider Prize Money (CHF)', 'Technical Score From Individual Judge', 'Artistic Score From Individual Judge', 'Final Score', 'Judge ID', 'Rider ID'])
     
     return True
 
-def saveresult( result, file='output/results.csv' ):
+def savejudges( file='output/judges.csv' ):
+
+    writer = csv.writer(open(file, 'wb'), delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(['Judge ID', 'Judge Gender','Judge Family Name', 'Judge First Name', 'Judge Nationality', 'Judge Day of Birth', 'Judge Month of Birth', 'Judge Year of Birth', 'Judge Administering NF' ])
+    
+    unique = uniquebyid(JUDGES)
+    
+    for judge in unique:
+       writer.writerow([ judge['id'], judge['gender'], judge['lastname'], judge['firstname'], judge['nationality'], judge['dof']['d'], judge['dof']['m'], judge['dof']['y'], judge['nf'] ]) 
+
+def saveriders( file='output/riders.csv' ):
     
     writer = csv.writer(open(file, 'wb'), delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
     writer.writerow(['Rider ID', 'Rider Gender', 'Rider Family Name', 'Rider First Name', 'Rider Nationality', 'Rider Day of Birth', 'Rider Month of Birth', 'Rider Year of Birth', 'Rider Administering NF', 'Rider Competing For', 'Rider League'])
     
-    return True
+    unique = uniquebyid(RIDERS)
+    
+    for rider in unique:
+        writer.writerow([rider['id'], rider['gender'], rider['lastname'].encode('utf-8'), rider['firstname'].encode('utf-8'), rider['nationality'], rider['dof']['d'], rider['dof']['m'], rider['dof']['y'], rider['nf'], rider['competingfor'], rider['league'] ])
 
+def uniquebyid(items):
+    unique = []
+    for i in range(0, len(items)):
+        count = len(unique)
+        match = False
+        for j in range(0, count):
+            if items[i]['id'] == unique[j]['id']:
+                match = True
+        
+        if match == False:
+            unique.append(items[i])
+    
+    return unique
+        
 def fetchall(url):
     
     count = pagecount(SEARCH_URL)
@@ -389,18 +457,17 @@ def fetchall(url):
     
     print "fetched -> %d events" % len(myevents)
     
-    for evt in myevents:
-       print evt['title'].encode('utf-8')
+    for i in range(0, 1):#myevents:
+       print myevents[i]['title'].encode('utf-8')
        
-       for pageurl in evt['urls']:
-           #print pageurl['url']
-           evt['competitions'].append( competitions( pageurl['url'] ) )
+       for pageurl in myevents[i]['urls']:
+           myevents[i]['competitions'].append( competitions( pageurl['url'] ) )
     
     return myevents
 
 def main():
     
-    #myevents = fetchall(SEARCH_URL)
+    myevents = fetchall(SEARCH_URL)
     
     #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=80979162F60932B56985630881496C43')
     #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=21E1D66E5EAF3EFA6C8A9438A68DDBF6')
@@ -408,12 +475,13 @@ def main():
     
     #details = fetch_rider_details('https://data.fei.org/Person/Detail.aspx?p=A77A9DEDEC6686C3865DF12347853E2E')
     
-    #for evt in myevents:
-    #    print evt['title'].encode('utf-8')
+    for evt in myevents:
+        print evt['title'].encode('utf-8')
     
-    #saveresult({})
+    saveriders()
+    savejudges()
     
-    fetch_judge_details('ROCKWELL')
+    #print search_judge('Gary','ROCKWELL')
     
     #count = pagecount(SEARCH_URL)
     
