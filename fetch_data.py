@@ -18,7 +18,14 @@ import time
 # 7. output in cvs file
 
 SEARCH_URL = 'https://data.fei.org/Calendar/Search.aspx?resultMode=true'
+JUDGE_URL = 'https://data.fei.org/Person/Search.aspx'
 
+"""
+events[title, country, urls, competitions]
+    competitions[info, competitions]
+        competitions[info, competitors]
+            competitors[position, firstname, ...]
+"""
 # APPROVED
 def events( uri, count ):
     
@@ -269,6 +276,46 @@ def fetch_rider_details(url):
     
     return details
 
+def fetch_judge_details(judge):
+    
+    br = browse(JUDGE_URL)
+    
+    br.select_form(nr=0)
+    br.set_all_readonly(False) 
+    
+    # select the right group 'Officials'
+    br.form['ctl00$PlaceHolderMain$ddlCritPersonGroups']=['4']
+    
+    br.find_control("ctl00$PlaceHolderMain$btnReset").disabled = True
+
+    br.submit()
+    
+    br.select_form(nr=0)
+    br.set_all_readonly(False) 
+    
+    # select the right rider category 'Senior Rider'
+    br.form['ctl00$PlaceHolderMain$ddlCritFunctions'] =['3']
+    br.form['ctl00$PlaceHolderMain$txtCritName'] = judge;
+    br.find_control("ctl00$PlaceHolderMain$btnReset").disabled = True
+    
+    # simulate search click
+    br.submit(name="ctl00$PlaceHolderMain$btnSearch") 
+    
+    response = br.response().read()
+    
+    soup = BeautifulSoup(response)
+    
+    print soup.title
+    
+    firstrows = soup.select(".row")
+    secondrows = soup.select(".altrow")
+    
+    rows = firstrows + secondrows
+    
+    for row in rows:
+        print row.td
+    
+    return {}
 
 # APPROVED
 def search(url, offset=0):
@@ -364,7 +411,9 @@ def main():
     #for evt in myevents:
     #    print evt['title'].encode('utf-8')
     
-    saveresult({})
+    #saveresult({})
+    
+    fetch_judge_details('ROCKWELL')
     
     #count = pagecount(SEARCH_URL)
     
