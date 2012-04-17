@@ -6,6 +6,8 @@ import sys
 from optparse import OptionParser
 import re
 import csv
+import time
+#time.sleep (.5); # sleep for .5 seconds
 
 # 1. do search on dressage disipline
 # 2. get number of page results
@@ -54,12 +56,13 @@ def event( url, page ):
             for link in links:
                  urls.append({'title':link.contents[0].strip(), 'url':link['href']} )
             
-            results.append({'title':row.contents[1].a['title'], 'country': country, 'urls': urls })
+            results.append({'title':row.contents[1].a['title'], 'country': country, 'urls': urls, 'competitions': [] })
     
     print "fetched -> %s on page %d" % ( url, page )
     
     return results
 
+# APPROVED
 def pagecount(url):
     
     response = search(url)
@@ -67,11 +70,11 @@ def pagecount(url):
     soup = BeautifulSoup( response )
     
     # filter out the page count
-    pagecount = int(soup.select(".pager")[0].contents[1].table.td.text.split(" ")[0])
+    pagecount = int(soup.select(".pager")[0].contents[1].table.td.text.split(" ")[5])
     
     return pagecount
     
-# TODO
+# APPROVED
 def competitions( url ):
     
     br = browse(url)
@@ -84,8 +87,6 @@ def competitions( url ):
     
     info = { 'venue': tds[1].contents[0].strip(), 'nf': tds[6].contents[0].strip(), 'type': tds[8].contents[0].strip(), 'discipline': tds[10].contents[0].strip(), 'category':tds[12].contents[0].strip(), 'start_date': tds[16].contents[0].strip(), 'end_date' : tds[16].contents[2].strip(), 'indoor': tds[18].contents[0].strip(), 'code': tds[20].contents[0].strip(), 'prize_money': tds[32].contents[0].strip() }
     
-    #print info
-    
     #for i in range(0, len(tds)):
     #    if len(tds[i].contents[0].strip()) > 0:
     #        print "%d - %s" % (i, tds[i].contents[0].strip())
@@ -95,7 +96,7 @@ def competitions( url ):
     
     rows = firstrows + secondrows
     
-    results = []
+    compresults = []
     
     for row in rows:
         
@@ -105,9 +106,9 @@ def competitions( url ):
             
             javascript = row.contents[7].a['href'].split('"')
             
-            results.append( { 'url': url, 'page': javascript[1] } )
+            compresults.append( { 'url': url, 'page': javascript[1], 'results': results( url, javascript[1] ) } )
             
-    return { 'info': info, 'competitions': results }
+    return { 'info': info, 'competitions': compresults }
 
 def results( url, page ):
     
@@ -128,17 +129,48 @@ def results( url, page ):
     
     soup = BeautifulSoup( response )
     
-    tds = soup.select(".entrycrit")[0].find_all("td")
+    tds = soup.find(id="PlaceHolderMain_fvDetail_ucDressageJudges_panJudges").find_all("td")
     
-    judge_e = { 'firstname': tds[17].contents[0].strip(), 'lastname': tds[18].contents[0].strip(), 'country': parse_country(tds[19].contents[0].strip()) }
-    judge_h = { 'firstname': tds[22].contents[0].strip(), 'lastname': tds[23].contents[0].strip(), 'country': parse_country(tds[24].contents[0].strip()) }
-    judge_c = { 'firstname': tds[27].contents[0].strip(), 'lastname': tds[28].contents[0].strip(), 'country': parse_country(tds[29].contents[0].strip()) }
-    judge_m = { 'firstname': tds[32].contents[0].strip(), 'lastname': tds[33].contents[0].strip(), 'country': parse_country(tds[34].contents[0].strip()) }
-    judge_b = { 'firstname': tds[37].contents[0].strip(), 'lastname': tds[38].contents[0].strip(), 'country': parse_country(tds[39].contents[0].strip()) }
+    judgeoffset = 5
+    judgestart = 1
+    judgecount = len(tds) / judgeoffset
     
-    info = { 'competition_nr': tds[4].contents[0].strip(), 'rule': tds[6].contents[0].strip(), 'name': tds[8].contents[0].strip(), 'date': tds[10].contents[0].strip(), 'prize_money': tds[12].contents[0].strip(), 'judge_e': judge_e, 'judge_h': judge_h ,'judge_c': judge_c, 'judge_m': judge_m, 'judge_b': judge_b }
+    judge_e = { 'firstname': '', 'lastname': '', 'country': '', 'position': '' }
+    judge_h = { 'firstname': '', 'lastname': '', 'country': '', 'position': '' }
+    judge_c = { 'firstname': '', 'lastname': '', 'country': '', 'position': '' }
+    judge_m = { 'firstname': '', 'lastname': '', 'country': '', 'position': '' }
+    judge_b = { 'firstname': '', 'lastname': '', 'country': '', 'position': '' }
     
-    print info
+    for i in range(0, judgecount):
+        
+        index = (i*judgeoffset)+1
+        
+        pos = parse_judge_position( tds[index].contents[0].strip() )
+        
+        currentjudge = judge_e;
+        
+        if pos == "E":
+            currentjudge = judge_e
+        if pos == "H":
+            currentjudge = judge_h
+        if pos == "C":
+            currentjudge = judge_c
+        if pos == "M":
+            currentjudge = judge_m
+        if pos == "B":
+            currentjudge = judge_b
+        
+        currentjudge['position'] = pos
+        currentjudge['firstname'] = tds[index+1].contents[0].strip()
+        currentjudge['lastname'] = tds[index+2].contents[0].strip()
+        currentjudge['country'] = parse_country(tds[index+3].contents[0].strip()) 
+    
+    
+    tds = soup.select(".entrycrit")[0].findAll("td")
+    
+    info = { 'competition_nr': tds[4].contents[0].strip(), 'rule': tds[6].contents[0].strip(), 'name': tds[8].contents[0].strip(), 'date': tds[10].contents[0].strip(), 'prize_money': clean_prize_money(tds[12].contents[0].strip()), 'judge_e': judge_e, 'judge_h': judge_h ,'judge_c': judge_c, 'judge_m': judge_m, 'judge_b': judge_b }
+    
+    #print info
     
     #print tds[18].contents[0].strip()
     
@@ -147,6 +179,8 @@ def results( url, page ):
     #        print "%d - %s" % (i, tds[i].contents[0].strip())
     
     # get table results
+    
+    #return
     
     competitors = []
     
@@ -157,27 +191,33 @@ def results( url, page ):
     
     for row in rows:
         
-        #print row.contents[1].a['title'] # position
-        #print row.contents[3].a.contents[0].strip().encode('utf-8')  # competitor
-        
         rider = parse_name(row.contents[3].a.contents[0].strip())
         
-        #print row.contents[4].a.contents[0].strip() # horse 
-        #print row.contents[5].contents[0].strip() # prize money 
-        #print row.contents[6].contents[0].strip() # judge e 
-        #print row.contents[7].contents[0].strip() # judge h
-        #print row.contents[8].contents[0].strip() # judge c
-        #print row.contents[9].contents[0].strip() # judge m
-        #print row.contents[10].contents[0].strip() # judge b
-        #print row.contents[11].contents[0].strip()
-        #print row.contents[12].contents[0].strip() # score
+        rider_details = fetch_rider_details(row.contents[3].a['href'])
         
-        competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': row.contents[4].a.contents[0].strip(), 'prize_money': row.contents[5].contents[0].strip(), 'judge_e_score': row.contents[6].contents[0].strip(), 'judge_e_tech': row.contents[6].contents[0].strip(), 'judge_e_art': row.contents[6].contents[0].strip(), 'judge_h_score': row.contents[7].contents[0].strip(), 'judge_h_tech': row.contents[7].contents[0].strip(), 'judge_h_art': row.contents[7].contents[0].strip(), 'judge_c_score': row.contents[8].contents[0].strip(), 'judge_c_tech': row.contents[8].contents[0].strip(), 'judge_m_score': row.contents[9].contents[0].strip(), 'judge_m_tech': row.contents[9].contents[0].strip(), 'judge_m_art': row.contents[9].contents[0].strip(), 'judge_b_score': row.contents[10].contents[0].strip(), 'judge_b_tech': row.contents[10].contents[0].strip(), 'judge_b_art': row.contents[10].contents[0].strip(), 'score': row.contents[12].contents[0].strip() })
+        # sometimes there is not several scores listed
+        if len(row.contents) > 9:
+            competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': row.contents[4].a.contents[0].strip(), 'prize_money': row.contents[5].contents[0].strip(), 'judge_e_score': row.contents[6].contents[0].strip(), 'judge_e_tech': row.contents[6].contents[0].strip(), 'judge_e_art': row.contents[6].contents[0].strip(), 'judge_h_score': row.contents[7].contents[0].strip(), 'judge_h_tech': row.contents[7].contents[0].strip(), 'judge_h_art': row.contents[7].contents[0].strip(), 'judge_c_score': row.contents[8].contents[0].strip(), 'judge_c_tech': row.contents[8].contents[0].strip(), 'judge_m_score': row.contents[9].contents[0].strip(), 'judge_m_tech': row.contents[9].contents[0].strip(), 'judge_m_art': row.contents[9].contents[0].strip(), 'judge_b_score': row.contents[10].contents[0].strip(), 'judge_b_tech': row.contents[10].contents[0].strip(), 'judge_b_art': row.contents[10].contents[0].strip(), 'score': row.contents[12].contents[0].strip(), 'rider': rider_details })
+        else:
+            competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': row.contents[4].a.contents[0].strip(), 'prize_money': row.contents[5].contents[0].strip(), 'judge_e_score': '', 'judge_e_tech': '', 'judge_e_art': '', 'judge_h_score': '', 'judge_h_tech': '', 'judge_h_art': '', 'judge_c_score': '', 'judge_c_tech': '', 'judge_m_score': '', 'judge_m_tech': '', 'judge_m_art': '', 'judge_b_score': '', 'judge_b_tech': '', 'judge_b_art': '', 'score': row.contents[7].contents[0].strip(), 'rider': rider_details })
+            
+        #print "score %s " % row.contents[12].contents[0].strip()
+        #print row.contents[7].contents[0].strip()
         
         #print competitors
     
-    
     return { 'info': info, 'competitors': competitors }
+
+# APPROVED
+def clean_prize_money(prize):
+    
+    return prize.replace("\t", "").replace("\r\n", " ") 
+
+# APPROVED
+def parse_judge_position(judge):
+    
+    return judge[-1]
+    
 
 # APPROVED
 def parse_name(name):
@@ -203,6 +243,33 @@ def browse(url):
     
     return br
 
+def fetch_rider_details(url):
+    
+    br = browse(url)
+    
+    soup = BeautifulSoup(br.response().read())
+    
+    firstds = soup.find(id='PlaceHolderMain_fvDetail_panMain').select(".formleft")[0].find_all("td")
+    
+    details = { 'id': firstds[1].contents[0].strip(), 'gender': firstds[3].contents[0].strip(), 'lastname': firstds[7].input['title'], 'firstname': firstds[9].input['title'], 'nationality': firstds[13].contents[0].strip(), 'dof': {'d': '', 'm': '', 'y': ''}, 'nf': '', 'competingfor': '', 'league': '' }
+    
+    secondtds = soup.find(id='PlaceHolderMain_fvDetail_panMain').select(".formright")[0].find_all("td")
+    
+    dof = secondtds[3].contents[0].strip().split("/")
+    
+    details['dof']['d'] = dof[0]
+    details['dof']['m'] = dof[1]
+    details['dof']['y'] = dof[2]
+    
+    details['nf'] = secondtds[12].div.contents[0].strip()
+    details['competingfor'] = soup.find(id='PlaceHolderMain_fvDetail_panCompetitor').select(".formleft")[0].find_all("td")[1].contents[0].strip()
+    details['league'] = soup.find(id='PlaceHolderMain_fvDetail_gvLeagues').find_all("td")[0].contents[0].strip()
+    
+    print details
+    
+    return details
+
+
 # APPROVED
 def search(url, offset=0):
     
@@ -225,23 +292,21 @@ def search(url, offset=0):
     br.form['ctl00$PlaceHolderMain$ddlCritCategories'] =['1'] 
     br.find_control("ctl00$PlaceHolderMain$btnReset").disabled = True
     
-    
-        
-    #    br.submit()
-    #else:
-        # simulate search click
+    # simulate search click
     br.submit(name="ctl00$PlaceHolderMain$btnSearch")
     
     # if we need to offset search results, add that option
     if offset > 0:
+        
         pageid = "Page$"+str(offset)
         
         br.select_form(nr=0)
         br.set_all_readonly(False)
-    
-        br.form.new_control('text', 'ctl00$PlaceHolderBottom$wcResult$gvcRes', {'value':''})
-        br.form.fixup()
-        br.form['ctl00$PlaceHolderBottom$wcResult$gvcRes']=pageid
+        
+        br.find_control("ctl00$PlaceHolderMain$btnReset").disabled = True   
+        
+        br.form["__EVENTTARGET"]='ctl00$PlaceHolderBottom$wcResult$gvcRes'
+        br.form["__EVENTARGUMENT"]=pageid
         
         br.submit()
     
@@ -255,21 +320,63 @@ def judgegender( url, judges ):
 def ridergender( url, judges ):
     return None
 
-def saveresult( result, file='test.csv' ):
+def saveriders( result, file='output/riders.csv' ):
     
     writer = csv.writer(open(file, 'wb'), delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-    writer.writerow(['Spam', 'Lovely Spam', 'Wonderful Spam'])
+    writer.writerow(['Event Venue', 'Event NF', 'Event Show Type', 'Event Discipline', 'Event Category', 'Event Starting Date', 'Event End Date', 'Event Indoor', 'Event code', 'Event Prize Money', 'Event Prize Money(CHF)', 'Competition Nr.', 'Competition Rule', 'Competition Name', 'Competition Date', 'Competition Prize Money','Competition Prize Money (CHF)', 'Judge Position', 'Judge First Name', 'Judge Family Name', 'Judge NF', 'Rider Final Position', 'Rider First Name', 'Rider Family Name', 'Rider NF', 'Horse Name', 'Rider Prize Money', 'Rider Prize Money (CHF)', 'Technical Score From Individual Judge', 'Artistic Score From Individual Judge', 'Final Score', 'Judge ID', 'Rider ID'])
     
-    return None
+    return True
 
-def main():
+def saveresult( result, file='output/results.csv' ):
+    
+    writer = csv.writer(open(file, 'wb'), delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(['Rider ID', 'Rider Gender', 'Rider Family Name', 'Rider First Name', 'Rider Nationality', 'Rider Day of Birth', 'Rider Month of Birth', 'Rider Year of Birth', 'Rider Administering NF', 'Rider Competing For', 'Rider League'])
+    
+    return True
+
+def fetchall(url):
     
     count = pagecount(SEARCH_URL)
     
-    myevent = event(SEARCH_URL, 2)
+    myevents = events(SEARCH_URL, 1)
     
-    for evt in myevent:
-        print evt['title'].encode('utf-8')
+    print "fetched -> %d events" % len(myevents)
+    
+    for evt in myevents:
+       print evt['title'].encode('utf-8')
+       
+       for pageurl in evt['urls']:
+           #print pageurl['url']
+           evt['competitions'].append( competitions( pageurl['url'] ) )
+    
+    return myevents
+
+def main():
+    
+    #myevents = fetchall(SEARCH_URL)
+    
+    #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=80979162F60932B56985630881496C43')
+    #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=21E1D66E5EAF3EFA6C8A9438A68DDBF6')
+    #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=A37A41ABD93704BE0C58F4E6F1F4F3C2')
+    
+    #details = fetch_rider_details('https://data.fei.org/Person/Detail.aspx?p=A77A9DEDEC6686C3865DF12347853E2E')
+    
+    #for evt in myevents:
+    #    print evt['title'].encode('utf-8')
+    
+    saveresult({})
+    
+    #count = pagecount(SEARCH_URL)
+    
+    #myevents = events(SEARCH_URL, 1)
+    
+    #print "fetched -> %d events" % len(myevents)
+    
+    #for evt in myevents:
+    #   print evt['title'].encode('utf-8')
+    
+    #for evt in myevent:
+    #    print evt['title'].encode('utf-8')
     
     #print myevent[0]['urls'][0]['url']
     
