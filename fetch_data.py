@@ -175,7 +175,7 @@ def results( url, page ):
         currentjudge['firstname'] = tds[index+1].contents[0].strip()
         currentjudge['lastname'] = tds[index+2].contents[0].strip()
         currentjudge['country'] = parse_country(tds[index+3].contents[0].strip()) 
-        currentjudge['details'] = search_judge(currentjudge['firstname'], currentjudge['lastname'] )
+        currentjudge['details'] = search_judge(currentjudge['firstname'].encode("utf-8"), currentjudge['lastname'].encode("utf-8") )
         
         #print currentjudge['details']
     
@@ -239,6 +239,7 @@ def parse_name(name):
     
     return { 'firstname': parts[0], 'lastname': " ".join(parts[1:-1]), 'country': parse_country(parts[-1]) }
 
+# APPROVED
 def parse_judge_name(name):
     parts = name.split(", ")
     
@@ -457,7 +458,7 @@ def fetchall(url):
     
     print "fetched -> %d events" % len(myevents)
     
-    for i in range(0, 1):#myevents:
+    for i in range(0, len(myevents)):#myevents:
        print myevents[i]['title'].encode('utf-8')
        
        for pageurl in myevents[i]['urls']:
@@ -472,6 +473,9 @@ def main():
     #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=80979162F60932B56985630881496C43')
     #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=21E1D66E5EAF3EFA6C8A9438A68DDBF6')
     #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=A37A41ABD93704BE0C58F4E6F1F4F3C2')
+    #https://data.fei.org/Calendar/EventDetail.aspx?p=A37A41ABD93704BE0C58F4E6F1F4F3C2
+    
+    #https://data.fei.org/Result/ResultList.aspx?p=FD61305C26C56C44D057820205C56F91398B97560726BEDF84FB277F5BB21799
     
     #details = fetch_rider_details('https://data.fei.org/Person/Detail.aspx?p=A77A9DEDEC6686C3865DF12347853E2E')
     
