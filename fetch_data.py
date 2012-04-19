@@ -7,6 +7,7 @@ from optparse import OptionParser
 import re
 import csv
 import time
+import urllib2
 #time.sleep (.5); # sleep for .5 seconds
 
 # 1. do search on dressage disipline
@@ -96,7 +97,7 @@ def competitions( url ):
     
     tds = soup.select(".entrycrit")[0].find_all("td")
     
-    info = { 'venue': tds[1].contents[0].strip(), 'nf': tds[6].contents[0].strip(), 'type': tds[8].contents[0].strip(), 'discipline': tds[10].contents[0].strip(), 'category':tds[12].contents[0].strip(), 'start_date': tds[16].contents[0].strip(), 'end_date' : tds[16].contents[2].strip(), 'indoor': tds[18].contents[0].strip(), 'code': tds[20].contents[0].strip(), 'prize_money': tds[32].contents[0].strip() }
+    info = { 'venue': tds[1].contents[0].strip(), 'nf': tds[6].contents[0].strip(), 'type': tds[8].contents[0].strip(), 'discipline': tds[10].contents[0].strip(), 'category':tds[12].contents[0].strip(), 'start_date': tds[16].contents[0].strip(), 'end_date' : tds[16].contents[2].strip(), 'indoor': tds[18].contents[0].strip(), 'code': tds[20].contents[0].strip(), 'prize_money': clean_prize_money(tds[32].contents[0].strip()) }
     
     #for i in range(0, len(tds)):
     #    if len(tds[i].contents[0].strip()) > 0:
@@ -133,7 +134,10 @@ def results( url, page ):
     
     br.find_control("ctl00$PlaceHolderMain$btnReset").disabled = True
     
-    br.submit()
+    try:
+        br.submit()
+    except urllib2.URLError as e:
+        print e.reason
     
     # get result page
     response = br.response().read()
@@ -226,10 +230,10 @@ def results( url, page ):
             m_score = parse_score(row.contents[9+rowoffset].contents)
             b_score = parse_score(row.contents[10+rowoffset].contents)
                 
-            competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': row.contents[4].a.contents[0].strip(), 'prize_money': row.contents[5].contents[0].strip(), 'judge_e_score': e_score['tech'], 'judge_e_tech': e_score['tech'], 'judge_e_art': e_score['art'], 'judge_h_score': h_score['tech'], 'judge_h_tech': h_score['tech'], 'judge_h_art': h_score['art'], 'judge_c_score': c_score['tech'], 'judge_c_tech': c_score['tech'], 'judge_c_art': c_score['art'],'judge_m_score': m_score['tech'], 'judge_m_tech': m_score['tech'], 'judge_m_art': m_score['art'], 'judge_b_score': b_score['tech'], 'judge_b_tech': b_score['tech'], 'judge_b_art': b_score['art'], 'score': b_score['tech'], 'rider': rider_details })
+            competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': row.contents[4].a.contents[0].strip(), 'prize_money': clean_prize_money(row.contents[5].contents[0].strip()), 'judge_e_score': e_score['tech'], 'judge_e_tech': e_score['tech'], 'judge_e_art': e_score['art'], 'judge_h_score': h_score['tech'], 'judge_h_tech': h_score['tech'], 'judge_h_art': h_score['art'], 'judge_c_score': c_score['tech'], 'judge_c_tech': c_score['tech'], 'judge_c_art': c_score['art'],'judge_m_score': m_score['tech'], 'judge_m_tech': m_score['tech'], 'judge_m_art': m_score['art'], 'judge_b_score': b_score['tech'], 'judge_b_tech': b_score['tech'], 'judge_b_art': b_score['art'], 'score': b_score['tech'], 'rider': rider_details })
             
         else:
-            competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': row.contents[4].a.contents[0].strip(), 'prize_money': row.contents[5].contents[0].strip(), 'judge_e_score': '', 'judge_e_tech': '', 'judge_e_art': '', 'judge_h_score': '', 'judge_h_tech': '', 'judge_h_art': '', 'judge_c_score': '', 'judge_c_tech': '', 'judge_m_score': '', 'judge_m_tech': '', 'judge_m_art': '', 'judge_b_score': '', 'judge_b_tech': '', 'judge_b_art': '', 'score': row.contents[7].contents[0].strip(), 'rider': rider_details })
+            competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': row.contents[4].a.contents[0].strip(), 'prize_money': clean_prize_money(row.contents[5].contents[0].strip()), 'judge_e_score': '', 'judge_e_tech': '', 'judge_e_art': '', 'judge_h_score': '', 'judge_h_tech': '', 'judge_h_art': '', 'judge_c_score': '', 'judge_c_tech': '', 'judge_m_score': '', 'judge_m_tech': '', 'judge_m_art': '', 'judge_b_score': '', 'judge_b_tech': '', 'judge_b_art': '', 'score': row.contents[7].contents[0].strip(), 'rider': rider_details })
             
         #print "score %s " % row.contents[12].contents[0].strip()
         #print row.contents[7].contents[0].strip()
@@ -280,6 +284,17 @@ def parse_dof(dof):
     parts = dof.split("/")
     
     return {'d': parts[0],'m': parts[1],'y': parts[2] }
+
+def clean_output(data):
+    
+    return data.replace(",", "").replace("|", "")
+
+def clean_row(row):
+    
+    for i in range(0,len(row)):
+        row[i] = clean_output(row[i])
+    
+    return row
     
 # APPROVED
 def browse(url):
@@ -289,8 +304,14 @@ def browse(url):
     
     br.set_debug_redirects(True)
     br.set_handle_redirect(True)
-    br.open(url, "rt")
     
+    try:
+        br.open(url)
+    except urllib2.URLError as e:
+        print e.reason
+        time.sleep (2);
+        br.open(url)
+        
     return br
 
 def fetch_rider_details(url):
@@ -376,7 +397,7 @@ def search_judge(firstname, lastname):
     
     for row in rows:
         option = parse_judge_name(row.a['title'])
-        if option['firstname'] == firstname:
+        if option['firstname'].encode('utf-8') == firstname:
             option['id'] = row.span.contents[0];
             
             return fetch_judge_details("%s%s" % (PERSON_URL,row.a['href']))
@@ -474,11 +495,11 @@ def saveresults( myevents, file='output/results.csv' ):
                     
                     judge_b = compinfo + [ comp['results']['info']['judge_b']['position'], comp['results']['info']['judge_b']['firstname'].encode('utf-8'), comp['results']['info']['judge_b']['lastname'].encode('utf-8'), comp['results']['info']['judge_b']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money'], rider['prize_money'], rider['judge_b_tech'], rider['judge_b_art'], rider['score'], comp['results']['info']['judge_b']['details']['id'], rider['rider']['id'] ]
                     
-                    writer.writerow( judge_e )
-                    writer.writerow( judge_h )
-                    writer.writerow( judge_c )
-                    writer.writerow( judge_m )
-                    writer.writerow( judge_b )
+                    writer.writerow( clean_row(judge_e) )
+                    writer.writerow( clean_row(judge_h) )
+                    writer.writerow( clean_row(judge_c) )
+                    writer.writerow( clean_row(judge_m) )
+                    writer.writerow( clean_row(judge_b) )
 
 def savejudges( file='output/judges.csv' ):
 
@@ -488,7 +509,7 @@ def savejudges( file='output/judges.csv' ):
     unique = uniquebyid(JUDGES)
     
     for judge in unique:
-       writer.writerow([ judge['id'], judge['gender'], judge['lastname'], judge['firstname'], judge['nationality'], judge['dof']['d'], judge['dof']['m'], judge['dof']['y'], judge['nf'] ]) 
+       writer.writerow(clean_row([ judge['id'], judge['gender'], judge['lastname'], judge['firstname'], judge['nationality'], judge['dof']['d'], judge['dof']['m'], judge['dof']['y'], judge['nf'] ])) 
 
 def saveriders( file='output/riders.csv' ):
     
@@ -498,7 +519,7 @@ def saveriders( file='output/riders.csv' ):
     unique = uniquebyid(RIDERS)
     
     for rider in unique:
-        writer.writerow([rider['id'], rider['gender'], rider['lastname'].encode('utf-8'), rider['firstname'].encode('utf-8'), rider['nationality'], rider['dof']['d'], rider['dof']['m'], rider['dof']['y'], rider['nf'], rider['competingfor'], rider['league'] ])
+        writer.writerow(clean_row([rider['id'], rider['gender'], rider['lastname'].encode('utf-8'), rider['firstname'].encode('utf-8'), rider['nationality'], rider['dof']['d'], rider['dof']['m'], rider['dof']['y'], rider['nf'], rider['competingfor'], rider['league'] ]))
 
 def uniquebyid(items):
     unique = []
@@ -545,9 +566,10 @@ def main():
     
     #details = fetch_rider_details('https://data.fei.org/Person/Detail.aspx?p=A77A9DEDEC6686C3865DF12347853E2E')         
     
-    #saveresults(myevents)
-    #saveriders()
-    #savejudges()
+    saveriders()
+    savejudges()
+    
+    print '\a'
     
 if __name__ == "__main__":
     main()
