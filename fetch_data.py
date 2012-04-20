@@ -150,11 +150,11 @@ def results( url, page ):
     judgestart = 1
     judgecount = len(tds) / judgeoffset
     
-    judge_e = { 'firstname': '', 'lastname': '', 'country': '', 'position': '' }
-    judge_h = { 'firstname': '', 'lastname': '', 'country': '', 'position': '' }
-    judge_c = { 'firstname': '', 'lastname': '', 'country': '', 'position': '' }
-    judge_m = { 'firstname': '', 'lastname': '', 'country': '', 'position': '' }
-    judge_b = { 'firstname': '', 'lastname': '', 'country': '', 'position': '' }
+    judge_e = { 'firstname': '', 'lastname': '', 'country': '', 'position': '', 'details': { 'nf': '', 'id': '' } }
+    judge_h = { 'firstname': '', 'lastname': '', 'country': '', 'position': '', 'details': { 'nf': '', 'id': '' } }
+    judge_c = { 'firstname': '', 'lastname': '', 'country': '', 'position': '', 'details': { 'nf': '', 'id': '' } }
+    judge_m = { 'firstname': '', 'lastname': '', 'country': '', 'position': '', 'details': { 'nf': '', 'id': '' } }
+    judge_b = { 'firstname': '', 'lastname': '', 'country': '', 'position': '', 'details': { 'nf': '', 'id': '' } }
     
     for i in range(0, judgecount):
         
@@ -180,24 +180,10 @@ def results( url, page ):
         currentjudge['lastname'] = tds[index+2].contents[0].strip()
         currentjudge['country'] = parse_country(tds[index+3].contents[0].strip()) 
         currentjudge['details'] = search_judge(currentjudge['firstname'].encode("utf-8"), currentjudge['lastname'].encode("utf-8") )
-        
-        #print currentjudge['details']
     
     tds = soup.select(".entrycrit")[0].findAll("td")
     
     info = { 'competition_nr': tds[4].contents[0].strip(), 'rule': tds[6].contents[0].strip(), 'name': tds[8].contents[0].strip(), 'date': tds[10].contents[0].strip(), 'prize_money': clean_prize_money(tds[12].contents[0].strip()), 'judge_e': judge_e, 'judge_h': judge_h ,'judge_c': judge_c, 'judge_m': judge_m, 'judge_b': judge_b }
-    
-    #print info
-    
-    #print tds[18].contents[0].strip()
-    
-    #for i in range(0, len(tds)):
-    #    if len(tds[i].contents[0].strip()) > 0:
-    #        print "%d - %s" % (i, tds[i].contents[0].strip())
-    
-    # get table results
-    
-    #return
     
     competitors = []
     
@@ -229,8 +215,11 @@ def results( url, page ):
             c_score = parse_score(row.contents[8+rowoffset].contents)
             m_score = parse_score(row.contents[9+rowoffset].contents)
             b_score = parse_score(row.contents[10+rowoffset].contents)
+            f_score = parse_score(row.contents[12+rowoffset].contents)
+            
+            print f_score
                 
-            competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': row.contents[4].a.contents[0].strip(), 'prize_money': clean_prize_money(row.contents[5].contents[0].strip()), 'judge_e_score': e_score['tech'], 'judge_e_tech': e_score['tech'], 'judge_e_art': e_score['art'], 'judge_h_score': h_score['tech'], 'judge_h_tech': h_score['tech'], 'judge_h_art': h_score['art'], 'judge_c_score': c_score['tech'], 'judge_c_tech': c_score['tech'], 'judge_c_art': c_score['art'],'judge_m_score': m_score['tech'], 'judge_m_tech': m_score['tech'], 'judge_m_art': m_score['art'], 'judge_b_score': b_score['tech'], 'judge_b_tech': b_score['tech'], 'judge_b_art': b_score['art'], 'score': b_score['tech'], 'rider': rider_details })
+            competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': row.contents[4].a.contents[0].strip(), 'prize_money': clean_prize_money(row.contents[5].contents[0].strip()), 'judge_e_score': e_score['tech'], 'judge_e_tech': e_score['tech'], 'judge_e_art': e_score['art'], 'judge_h_score': h_score['tech'], 'judge_h_tech': h_score['tech'], 'judge_h_art': h_score['art'], 'judge_c_score': c_score['tech'], 'judge_c_tech': c_score['tech'], 'judge_c_art': c_score['art'],'judge_m_score': m_score['tech'], 'judge_m_tech': m_score['tech'], 'judge_m_art': m_score['art'], 'judge_b_score': b_score['tech'], 'judge_b_tech': b_score['tech'], 'judge_b_art': b_score['art'], 'score': f_score['tech'], 'rider': rider_details })
             
         else:
             competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': row.contents[4].a.contents[0].strip(), 'prize_money': clean_prize_money(row.contents[5].contents[0].strip()), 'judge_e_score': '', 'judge_e_tech': '', 'judge_e_art': '', 'judge_h_score': '', 'judge_h_tech': '', 'judge_h_art': '', 'judge_c_score': '', 'judge_c_tech': '', 'judge_m_score': '', 'judge_m_tech': '', 'judge_m_art': '', 'judge_b_score': '', 'judge_b_tech': '', 'judge_b_art': '', 'score': row.contents[7].contents[0].strip(), 'rider': rider_details })
@@ -277,7 +266,7 @@ def parse_score(score):
     if len(score) > 1:
         return { 'tech': score[0].strip(), 'art': score[1].contents[0].strip() }
     
-    return { 'tech': score[0].strip(), 'art': '' } 
+    return { 'tech': score[0].strip(), 'art': '' }
 
 def parse_dof(dof):
     
@@ -372,8 +361,12 @@ def search_judge(firstname, lastname):
     br.form['ctl00$PlaceHolderMain$ddlCritPersonGroups']=['4']
     
     br.find_control("ctl00$PlaceHolderMain$btnReset").disabled = True
-
-    br.submit()
+    
+    try:
+        br.submit()
+    except urllib2.URLError as e:
+        print e.reason
+        return {'id': '', 'gender': '', 'lastname': lastname, 'firstname': firstname, 'nationality': '', 'dof': '', 'nf': '' } 
     
     br.select_form(nr=0)
     br.set_all_readonly(False) 
@@ -383,8 +376,11 @@ def search_judge(firstname, lastname):
     br.form['ctl00$PlaceHolderMain$txtCritName'] = lastname;
     br.find_control("ctl00$PlaceHolderMain$btnReset").disabled = True
     
-    # simulate search click
-    br.submit(name="ctl00$PlaceHolderMain$btnSearch") 
+    try:
+        br.submit(name="ctl00$PlaceHolderMain$btnSearch")
+    except urllib2.URLError as e:
+        print e.reason
+        return {'id': '', 'gender': '', 'lastname': lastname, 'firstname': firstname, 'nationality': '', 'dof': '', 'nf': '' }
     
     response = br.response().read()
     
@@ -543,7 +539,7 @@ def fetchall(url):
     
     print "fetched -> %d events" % len(myevents)
     
-    for i in range(0, len(myevents)):
+    for i in range(0, 1):
        print myevents[i]['title'].encode('utf-8')
        
        for pageurl in myevents[i]['urls']:
