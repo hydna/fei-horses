@@ -18,6 +18,12 @@ import urllib2
 # 6. find gender of competitors and judges
 # 7. output in cvs file
 
+"""
+exceptions found:
+some do not have all the judges
+some do not have scores in each category
+"""
+
 SEARCH_URL = 'https://data.fei.org/Calendar/Search.aspx?resultMode=true'
 JUDGE_URL = 'https://data.fei.org/Person/Search.aspx'
 PERSON_URL = 'https://data.fei.org/Person/'
@@ -97,7 +103,7 @@ def competitions( url ):
     
     tds = soup.select(".entrycrit")[0].find_all("td")
     
-    info = { 'venue': tds[1].contents[0].strip(), 'nf': tds[6].contents[0].strip(), 'type': tds[8].contents[0].strip(), 'discipline': tds[10].contents[0].strip(), 'category':tds[12].contents[0].strip(), 'start_date': tds[16].contents[0].strip(), 'end_date' : tds[16].contents[2].strip(), 'indoor': tds[18].contents[0].strip(), 'code': tds[20].contents[0].strip(), 'prize_money': clean_prize_money(tds[32].contents[0].strip()) }
+    info = { 'venue': tds[1].contents[0].strip(), 'nf': tds[6].contents[0].strip(), 'type': tds[8].contents[0].strip(), 'discipline': tds[10].contents[0].strip(), 'category':tds[12].contents[0].strip(), 'start_date': tds[16].contents[0].strip(), 'end_date' : tds[16].contents[2].strip(), 'indoor': tds[18].contents[0].strip(), 'code': tds[20].contents[0].strip(), 'prize_money': parse_prize_money(tds[32].contents[0].strip()) }
     
     #for i in range(0, len(tds)):
     #    if len(tds[i].contents[0].strip()) > 0:
@@ -183,7 +189,7 @@ def results( url, page ):
     
     tds = soup.select(".entrycrit")[0].findAll("td")
     
-    info = { 'competition_nr': tds[4].contents[0].strip(), 'rule': tds[6].contents[0].strip(), 'name': tds[8].contents[0].strip(), 'date': tds[10].contents[0].strip(), 'prize_money': clean_prize_money(tds[12].contents[0].strip()), 'judge_e': judge_e, 'judge_h': judge_h ,'judge_c': judge_c, 'judge_m': judge_m, 'judge_b': judge_b }
+    info = { 'competition_nr': tds[4].contents[0].strip(), 'rule': tds[6].contents[0].strip(), 'name': tds[8].contents[0].strip(), 'date': tds[10].contents[0].strip(), 'prize_money': parse_prize_money(tds[12].contents[0].strip()), 'judge_e': judge_e, 'judge_h': judge_h ,'judge_c': judge_c, 'judge_m': judge_m, 'judge_b': judge_b }
     
     competitors = []
     
@@ -217,17 +223,12 @@ def results( url, page ):
             b_score = parse_score(row.contents[10+rowoffset].contents)
             f_score = parse_score(row.contents[12+rowoffset].contents)
             
-            print f_score
+            #print f_score
                 
-            competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': row.contents[4].a.contents[0].strip(), 'prize_money': clean_prize_money(row.contents[5].contents[0].strip()), 'judge_e_score': e_score['tech'], 'judge_e_tech': e_score['tech'], 'judge_e_art': e_score['art'], 'judge_h_score': h_score['tech'], 'judge_h_tech': h_score['tech'], 'judge_h_art': h_score['art'], 'judge_c_score': c_score['tech'], 'judge_c_tech': c_score['tech'], 'judge_c_art': c_score['art'],'judge_m_score': m_score['tech'], 'judge_m_tech': m_score['tech'], 'judge_m_art': m_score['art'], 'judge_b_score': b_score['tech'], 'judge_b_tech': b_score['tech'], 'judge_b_art': b_score['art'], 'score': f_score['tech'], 'rider': rider_details })
+            competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': row.contents[4].a.contents[0].strip(), 'prize_money': parse_prize_money(row.contents[5].contents[0].strip()), 'judge_e_score': e_score['tech'], 'judge_e_tech': e_score['tech'], 'judge_e_art': e_score['art'], 'judge_h_score': h_score['tech'], 'judge_h_tech': h_score['tech'], 'judge_h_art': h_score['art'], 'judge_c_score': c_score['tech'], 'judge_c_tech': c_score['tech'], 'judge_c_art': c_score['art'],'judge_m_score': m_score['tech'], 'judge_m_tech': m_score['tech'], 'judge_m_art': m_score['art'], 'judge_b_score': b_score['tech'], 'judge_b_tech': b_score['tech'], 'judge_b_art': b_score['art'], 'score': f_score['tech'], 'rider': rider_details })
             
         else:
-            competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': row.contents[4].a.contents[0].strip(), 'prize_money': clean_prize_money(row.contents[5].contents[0].strip()), 'judge_e_score': '', 'judge_e_tech': '', 'judge_e_art': '', 'judge_h_score': '', 'judge_h_tech': '', 'judge_h_art': '', 'judge_c_score': '', 'judge_c_tech': '', 'judge_m_score': '', 'judge_m_tech': '', 'judge_m_art': '', 'judge_b_score': '', 'judge_b_tech': '', 'judge_b_art': '', 'score': row.contents[7].contents[0].strip(), 'rider': rider_details })
-            
-        #print "score %s " % row.contents[12].contents[0].strip()
-        #print row.contents[7].contents[0].strip()
-        
-        #print competitors
+            competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': row.contents[4].a.contents[0].strip(), 'prize_money': parse_prize_money(row.contents[5].contents[0].strip()), 'judge_e_score': '', 'judge_e_tech': '', 'judge_e_art': '', 'judge_h_score': '', 'judge_h_tech': '', 'judge_h_art': '', 'judge_c_score': '', 'judge_c_tech': '','judge_c_art': '', 'judge_m_score': '', 'judge_m_tech': '', 'judge_m_art': '', 'judge_b_score': '', 'judge_b_tech': '', 'judge_b_art': '', 'score': row.contents[7].contents[0].strip(), 'rider': rider_details })
     
     return { 'info': info, 'competitors': competitors }
 
@@ -240,7 +241,17 @@ def clean_prize_money(prize):
 def parse_judge_position(judge):
     
     return judge[-1]
+
+def parse_prize_money(prize):
     
+    prize = clean_prize_money(prize)
+    
+    if find(prize, "CHF") != -1:
+        parts = prize.split("(")
+        return { 'default': parts[0].strip(), 'chf': parts[1].strip() }
+        
+        
+    return { 'default': prize, 'chf': '' }
 
 # APPROVED
 def parse_name(name):
@@ -337,9 +348,6 @@ def fetch_judge_details( url ):
     soup = BeautifulSoup(response)
     
     firstds = soup.find(id='PlaceHolderMain_fvDetail_panMain').findAll('td')
-    
-    #for i in range(0, len(firstds)):
-    #    print "%d - %s" % (i,firstds[i] )
         
     dof = parse_dof( firstds[17].contents[0].strip() )
     
@@ -460,42 +468,39 @@ def saveresults( myevents, file='output/results.csv' ):
         print evt['title'].encode('utf-8')
         
         for complist in evt['competitions']:
-            # here we have info on event
-            #print complist['info']
             
             for comp in complist['competitions']:
                 
-                # here competition info
-                #print comp['results']['info']
-                
-                for rider in comp['results']['competitors']:
+                for rider in comp['results']['competitors']:    
                     
-                    
-                    #Event Venue', 'Event NF', 'Event Show Type', 'Event Discipline', 'Event Category', 'Event Starting Date', 'Event End Date', 'Event Indoor', 'Event code', 'Event Prize Money', 'Event Prize Money(CHF)', 'Competition Nr.', 'Competition Rule', 'Competition Name', 'Competition Date', 'Competition Prize Money','Competition Prize Money (CHF)', 'Judge Position', 'Judge First Name', 'Judge Family Name', 'Judge NF', 'Rider Final Position', 'Rider First Name', 'Rider Family Name', 'Rider NF', 'Horse Name', 'Rider Prize Money', 'Rider Prize Money (CHF)', 'Technical Score From Individual Judge', 'Artistic Score From Individual Judge', 'Final Score', 'Judge ID', 'Rider ID'
-                    
-                    #info = { 'venue': tds[1].contents[0].strip(), 'nf': tds[6].contents[0].strip(), 'type': tds[8].contents[0].strip(), 'discipline': tds[10].contents[0].strip(), 'category':tds[12].contents[0].strip(), 'start_date': tds[16].contents[0].strip(), 'end_date' : tds[16].contents[2].strip(), 'indoor': tds[18].contents[0].strip(), 'code': tds[20].contents[0].strip(), 'prize_money': tds[32].contents[0].strip() }
-                    
-                    #info = { 'competition_nr': tds[4].contents[0].strip(), 'rule': tds[6].contents[0].strip(), 'name': tds[8].contents[0].strip(), 'date': tds[10].contents[0].strip(), 'prize_money': clean_prize_money(tds[12].contents[0].strip()), 'judge_e': judge_e, 'judge_h': judge_h ,'judge_c': judge_c, 'judge_m': judge_m, 'judge_b': judge_b }     
-                    
-                    compinfo = [complist['info']['venue'].encode('utf-8'), complist['info']['nf'], complist['info']['type'], complist['info']['discipline'], complist['info']['category'], complist['info']['start_date'], complist['info']['end_date'], complist['info']['indoor'], complist['info']['code'], complist['info']['prize_money'], complist['info']['prize_money'], comp['results']['info']['competition_nr'], comp['results']['info']['rule'], comp['results']['info']['name'], comp['results']['info']['date'], comp['results']['info']['prize_money'], comp['results']['info']['prize_money'] ]
+                    compinfo = [complist['info']['venue'].encode('utf-8'), complist['info']['nf'], complist['info']['type'], complist['info']['discipline'], complist['info']['category'], complist['info']['start_date'], complist['info']['end_date'], complist['info']['indoor'], complist['info']['code'], complist['info']['prize_money']['default'], complist['info']['prize_money']['chf'], comp['results']['info']['competition_nr'], comp['results']['info']['rule'], comp['results']['info']['name'], comp['results']['info']['date'], comp['results']['info']['prize_money']['default'], comp['results']['info']['prize_money']['chf'] ]
                     
                     # for each judge, output a line with score
                     
-                    judge_e = compinfo + [ comp['results']['info']['judge_e']['position'], comp['results']['info']['judge_e']['firstname'].encode('utf-8'), comp['results']['info']['judge_e']['lastname'].encode('utf-8'), comp['results']['info']['judge_e']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money'], rider['prize_money'], rider['judge_e_tech'], rider['judge_e_art'], rider['score'], comp['results']['info']['judge_e']['details']['id'], rider['rider']['id'] ]
+                    judge_e = compinfo + [ comp['results']['info']['judge_e']['position'], comp['results']['info']['judge_e']['firstname'].encode('utf-8'), comp['results']['info']['judge_e']['lastname'].encode('utf-8'), comp['results']['info']['judge_e']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money']['default'], rider['prize_money']['chf'], rider['judge_e_tech'], rider['judge_e_art'], rider['score'], comp['results']['info']['judge_e']['details']['id'], rider['rider']['id'] ]
                     
-                    judge_h = compinfo + [ comp['results']['info']['judge_h']['position'], comp['results']['info']['judge_h']['firstname'].encode('utf-8'), comp['results']['info']['judge_h']['lastname'].encode('utf-8'), comp['results']['info']['judge_h']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money'], rider['prize_money'], rider['judge_h_tech'], rider['judge_h_art'], rider['score'], comp['results']['info']['judge_h']['details']['id'], rider['rider']['id'] ]
+                    judge_h = compinfo + [ comp['results']['info']['judge_h']['position'], comp['results']['info']['judge_h']['firstname'].encode('utf-8'), comp['results']['info']['judge_h']['lastname'].encode('utf-8'), comp['results']['info']['judge_h']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money']['default'], rider['prize_money']['chf'], rider['judge_h_tech'], rider['judge_h_art'], rider['score'], comp['results']['info']['judge_h']['details']['id'], rider['rider']['id'] ]
                     
-                    judge_c = compinfo + [ comp['results']['info']['judge_c']['position'], comp['results']['info']['judge_c']['firstname'].encode('utf-8'), comp['results']['info']['judge_c']['lastname'].encode('utf-8'), comp['results']['info']['judge_c']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money'], rider['prize_money'], rider['judge_c_tech'], rider['judge_c_art'], rider['score'], comp['results']['info']['judge_c']['details']['id'], rider['rider']['id'] ]
+                    judge_c = compinfo + [ comp['results']['info']['judge_c']['position'], comp['results']['info']['judge_c']['firstname'].encode('utf-8'), comp['results']['info']['judge_c']['lastname'].encode('utf-8'), comp['results']['info']['judge_c']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money']['default'], rider['prize_money']['chf'], rider['judge_c_tech'], rider['judge_c_art'], rider['score'], comp['results']['info']['judge_c']['details']['id'], rider['rider']['id'] ]
                     
-                    judge_m = compinfo + [ comp['results']['info']['judge_m']['position'], comp['results']['info']['judge_m']['firstname'].encode('utf-8'), comp['results']['info']['judge_m']['lastname'].encode('utf-8'), comp['results']['info']['judge_m']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money'], rider['prize_money'], rider['judge_m_tech'], rider['judge_m_art'], rider['score'], comp['results']['info']['judge_m']['details']['id'], rider['rider']['id'] ] 
+                    judge_m = compinfo + [ comp['results']['info']['judge_m']['position'], comp['results']['info']['judge_m']['firstname'].encode('utf-8'), comp['results']['info']['judge_m']['lastname'].encode('utf-8'), comp['results']['info']['judge_m']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money']['default'], rider['prize_money']['chf'], rider['judge_m_tech'], rider['judge_m_art'], rider['score'], comp['results']['info']['judge_m']['details']['id'], rider['rider']['id'] ] 
                     
-                    judge_b = compinfo + [ comp['results']['info']['judge_b']['position'], comp['results']['info']['judge_b']['firstname'].encode('utf-8'), comp['results']['info']['judge_b']['lastname'].encode('utf-8'), comp['results']['info']['judge_b']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money'], rider['prize_money'], rider['judge_b_tech'], rider['judge_b_art'], rider['score'], comp['results']['info']['judge_b']['details']['id'], rider['rider']['id'] ]
+                    judge_b = compinfo + [ comp['results']['info']['judge_b']['position'], comp['results']['info']['judge_b']['firstname'].encode('utf-8'), comp['results']['info']['judge_b']['lastname'].encode('utf-8'), comp['results']['info']['judge_b']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money']['default'], rider['prize_money']['chf'], rider['judge_b_tech'], rider['judge_b_art'], rider['score'], comp['results']['info']['judge_b']['details']['id'], rider['rider']['id'] ]
                     
-                    writer.writerow( clean_row(judge_e) )
-                    writer.writerow( clean_row(judge_h) )
-                    writer.writerow( clean_row(judge_c) )
-                    writer.writerow( clean_row(judge_m) )
-                    writer.writerow( clean_row(judge_b) )
+                    if len(comp['results']['info']['judge_e']['details']['id']) > 0:
+                        writer.writerow( clean_row(judge_e) )
+                        
+                    if len(comp['results']['info']['judge_h']['details']['id']) > 0:
+                        writer.writerow( clean_row(judge_h) )
+                        
+                    if len(comp['results']['info']['judge_c']['details']['id']) > 0:
+                        writer.writerow( clean_row(judge_c) )
+                        
+                    if len(comp['results']['info']['judge_m']['details']['id']) > 0:
+                        writer.writerow( clean_row(judge_m) )
+                    
+                    if len(comp['results']['info']['judge_b']['details']['id']) > 0:
+                        writer.writerow( clean_row(judge_b) )
 
 def savejudges( file='output/judges.csv' ):
 
@@ -505,7 +510,7 @@ def savejudges( file='output/judges.csv' ):
     unique = uniquebyid(JUDGES)
     
     for judge in unique:
-       writer.writerow(clean_row([ judge['id'], judge['gender'], judge['lastname'], judge['firstname'], judge['nationality'], judge['dof']['d'], judge['dof']['m'], judge['dof']['y'], judge['nf'] ])) 
+       writer.writerow(clean_row([ judge['id'], judge['gender'], judge['lastname'].encode('utf-8'), judge['firstname'].encode('utf-8'), judge['nationality'].encode('utf-8'), judge['dof']['d'], judge['dof']['m'], judge['dof']['y'], judge['nf'].encode('utf-8') ])) 
 
 def saveriders( file='output/riders.csv' ):
     
@@ -515,7 +520,7 @@ def saveriders( file='output/riders.csv' ):
     unique = uniquebyid(RIDERS)
     
     for rider in unique:
-        writer.writerow(clean_row([rider['id'], rider['gender'], rider['lastname'].encode('utf-8'), rider['firstname'].encode('utf-8'), rider['nationality'], rider['dof']['d'], rider['dof']['m'], rider['dof']['y'], rider['nf'], rider['competingfor'], rider['league'] ]))
+        writer.writerow(clean_row([rider['id'], rider['gender'], rider['lastname'].encode('utf-8'), rider['firstname'].encode('utf-8'), rider['nationality'].encode('utf-8'), rider['dof']['d'], rider['dof']['m'], rider['dof']['y'], rider['nf'].encode('utf-8'), rider['competingfor'].encode('utf-8'), rider['league'].encode('utf-8') ]))
 
 def uniquebyid(items):
     unique = []
@@ -537,9 +542,9 @@ def fetchall(url):
     
     myevents = events(SEARCH_URL, 1)
     
-    print "fetched -> %d events" % len(myevents)
+    print "fetched -> %d events" % len(myevents) # divide these in to chunks for processing, fetch first batch and save that, then the next
     
-    for i in range(0, 1):
+    for i in range(0, len(myevents)):
        print myevents[i]['title'].encode('utf-8')
        
        for pageurl in myevents[i]['urls']:
@@ -551,11 +556,11 @@ def main():
     
     myevents = fetchall(SEARCH_URL)
     
-    saveresults(myevents)
+    saveresults(myevents, "output/results_page1.csv")
     
     #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=A37A41ABD93704BE0C58F4E6F1F4F3C2')
     #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=21E1D66E5EAF3EFA6C8A9438A68DDBF6')
-    #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=80979162F60932B56985630881496C43')
+    #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=21E1D66E5EAF3EFA6C8A9438A68DDBF6')
     #https://data.fei.org/Calendar/EventDetail.aspx?p=A37A41ABD93704BE0C58F4E6F1F4F3C2
     
     #https://data.fei.org/Result/ResultList.aspx?p=FD61305C26C56C44D057820205C56F91398B97560726BEDF84FB277F5BB21799
