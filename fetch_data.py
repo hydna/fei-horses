@@ -150,7 +150,12 @@ def results( url, page ):
     
     soup = BeautifulSoup( response )
     
-    tds = soup.find(id="PlaceHolderMain_fvDetail_ucDressageJudges_panJudges").find_all("td")
+    div = soup.find(id="PlaceHolderMain_fvDetail_ucDressageJudges_panJudges")
+    
+    tds = []
+    
+    if div is not None:
+        tds = div.find_all("td")
     
     judgeoffset = 5
     judgestart = 1
@@ -223,8 +228,6 @@ def results( url, page ):
             b_score = parse_score(row.contents[10+rowoffset].contents)
             f_score = parse_score(row.contents[12+rowoffset].contents)
             
-            #print f_score
-                
             competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': row.contents[4].a.contents[0].strip(), 'prize_money': parse_prize_money(row.contents[5].contents[0].strip()), 'judge_e_score': e_score['tech'], 'judge_e_tech': e_score['tech'], 'judge_e_art': e_score['art'], 'judge_h_score': h_score['tech'], 'judge_h_tech': h_score['tech'], 'judge_h_art': h_score['art'], 'judge_c_score': c_score['tech'], 'judge_c_tech': c_score['tech'], 'judge_c_art': c_score['art'],'judge_m_score': m_score['tech'], 'judge_m_tech': m_score['tech'], 'judge_m_art': m_score['art'], 'judge_b_score': b_score['tech'], 'judge_b_tech': b_score['tech'], 'judge_b_art': b_score['art'], 'score': f_score['tech'], 'rider': rider_details })
             
         else:
@@ -246,10 +249,12 @@ def parse_prize_money(prize):
     
     prize = clean_prize_money(prize)
     
-    if find(prize, "CHF") != -1:
+    if prize.find("CHF") != -1:
         parts = prize.split("(")
-        return { 'default': parts[0].strip(), 'chf': parts[1].strip() }
-        
+        if len(parts) > 1:
+            return { 'default': parts[0].strip(), 'chf': parts[1].strip().replace(")", "") }
+        else:
+            return { 'default': parts[0].strip(), 'chf': parts[0].strip() }
         
     return { 'default': prize, 'chf': '' }
 
@@ -540,7 +545,7 @@ def fetchall(url):
     
     count = pagecount(SEARCH_URL)
     
-    myevents = events(SEARCH_URL, 1)
+    myevents = events(SEARCH_URL, count)
     
     print "fetched -> %d events" % len(myevents) # divide these in to chunks for processing, fetch first batch and save that, then the next
     
@@ -556,9 +561,9 @@ def main():
     
     myevents = fetchall(SEARCH_URL)
     
-    saveresults(myevents, "output/results_page1.csv")
+    saveresults(myevents, "output/results_final.csv")
     
-    #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=A37A41ABD93704BE0C58F4E6F1F4F3C2')
+    #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=840612A1D9AD73D95779AE51DC4FCCF0')
     #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=21E1D66E5EAF3EFA6C8A9438A68DDBF6')
     #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=21E1D66E5EAF3EFA6C8A9438A68DDBF6')
     #https://data.fei.org/Calendar/EventDetail.aspx?p=A37A41ABD93704BE0C58F4E6F1F4F3C2
