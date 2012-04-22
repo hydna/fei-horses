@@ -201,37 +201,69 @@ def results( url, page ):
     firstrows = soup.select(".row")
     secondrows = soup.select(".altrow")
     
+    # instead lets find headers for all
+    #ths = soup.select(".headerr")
+    ths = soup.findAll("th")
+    thsize = len(ths)
+    headers = []
+    for i in range(0,thsize):
+        #print "%d - %s" % (i, ths[i].contents[0].strip())
+        headers.append({'index': i, 'title': ths[i].contents[0].strip() })
+    # 
+    
+    #return
+    
     rows = firstrows + secondrows
     
     for row in rows:
+        
+        e_score = {'tech':'', 'art':''}
+        h_score = {'tech':'', 'art':''}
+        c_score = {'tech':'', 'art':''}
+        m_score = {'tech':'', 'art':''}
+        b_score = {'tech':'', 'art':''}
+        
+        f_score = {'tech':'', 'art':''}
+        
+        contentsize = len(row.contents)
+        
+        offset = contentsize-2
+        for i in range(thsize-1,4, -1):
+            
+            if len(ths[i].contents[0].strip()) > 0:
+                #print "'%s'" % ths[i].contents[0].strip()
+                title = ths[i].contents[0].strip()
+                #print row.contents[offset]
+                if title == 'Score':
+                    f_score = parse_score(row.contents[offset].contents)
+                if title == 'Judge E':
+                    e_score = parse_score(row.contents[offset].contents)
+                if title == 'Judge H':
+                    h_score = parse_score(row.contents[offset].contents)
+                if title == 'Judge C':
+                    c_score = parse_score(row.contents[offset].contents)
+                if title == 'Judge M':
+                    m_score = parse_score(row.contents[offset].contents)
+                if title == 'Judge B':
+                    b_score = parse_score(row.contents[offset].contents)
+                
+            offset-=1
         
         rider = parse_name(row.contents[3].a.contents[0].strip())
         
         rider_details = fetch_rider_details(row.contents[3].a['href'])
         
-        # sometimes there is not several scores listed
-        if len(row.contents) > 9:
-            
-            rowoffset = 0
-            
-            if len(row.contents) == 15:
-                rowoffset = 1
-            elif len(row.contents) == 14:
-                rowoffset = 0
-            else:
-                print "UNKNOWN SIZE OF TABLE, PLEASE REVISE %s" % url
-            
-            e_score = parse_score(row.contents[6+rowoffset].contents)
-            h_score = parse_score(row.contents[7+rowoffset].contents)
-            c_score = parse_score(row.contents[8+rowoffset].contents)
-            m_score = parse_score(row.contents[9+rowoffset].contents)
-            b_score = parse_score(row.contents[10+rowoffset].contents)
-            f_score = parse_score(row.contents[12+rowoffset].contents)
-            
-            competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': row.contents[4].a.contents[0].strip(), 'prize_money': parse_prize_money(row.contents[5].contents[0].strip()), 'judge_e_score': e_score['tech'], 'judge_e_tech': e_score['tech'], 'judge_e_art': e_score['art'], 'judge_h_score': h_score['tech'], 'judge_h_tech': h_score['tech'], 'judge_h_art': h_score['art'], 'judge_c_score': c_score['tech'], 'judge_c_tech': c_score['tech'], 'judge_c_art': c_score['art'],'judge_m_score': m_score['tech'], 'judge_m_tech': m_score['tech'], 'judge_m_art': m_score['art'], 'judge_b_score': b_score['tech'], 'judge_b_tech': b_score['tech'], 'judge_b_art': b_score['art'], 'score': f_score['tech'], 'rider': rider_details })
-            
+        horse_name = ''
+        horse_id = ''
+        if row.contents[4].a:
+            horse_name = row.contents[4].a.contents[0].strip()
+            horse_id = fetch_horse_details(row.contents[4].a['href'])
         else:
-            competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': row.contents[4].a.contents[0].strip(), 'prize_money': parse_prize_money(row.contents[5].contents[0].strip()), 'judge_e_score': '', 'judge_e_tech': '', 'judge_e_art': '', 'judge_h_score': '', 'judge_h_tech': '', 'judge_h_art': '', 'judge_c_score': '', 'judge_c_tech': '','judge_c_art': '', 'judge_m_score': '', 'judge_m_tech': '', 'judge_m_art': '', 'judge_b_score': '', 'judge_b_tech': '', 'judge_b_art': '', 'score': row.contents[7].contents[0].strip(), 'rider': rider_details })
+            horse_name = row.contents[4].span['title']
+        
+        competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': horse_name, 'horse_id': horse_id, 'prize_money': parse_prize_money(row.contents[5].contents[0].strip()), 'judge_e_score': e_score['tech'], 'judge_e_tech': e_score['tech'], 'judge_e_art': e_score['art'], 'judge_h_score': h_score['tech'], 'judge_h_tech': h_score['tech'], 'judge_h_art': h_score['art'], 'judge_c_score': c_score['tech'], 'judge_c_tech': c_score['tech'], 'judge_c_art': c_score['art'],'judge_m_score': m_score['tech'], 'judge_m_tech': m_score['tech'], 'judge_m_art': m_score['art'], 'judge_b_score': b_score['tech'], 'judge_b_tech': b_score['tech'], 'judge_b_art': b_score['art'], 'score': f_score['tech'], 'rider': rider_details })
+    
+    
     
     return { 'info': info, 'competitors': competitors }
 
@@ -318,6 +350,18 @@ def browse(url):
         br.open(url)
         
     return br
+    
+def fetch_horse_details(url):
+    br = browse(url)
+    
+    soup = BeautifulSoup(br.response().read())
+    
+    tds = soup.find(id='PlaceHolderMain_fvDetail_panIDAndPassport').select(".formleft")[0].find_all("td")
+    
+    if len(tds) > 1:
+        return tds[1].contents[0].strip()
+    
+    print ''
 
 def fetch_rider_details(url):
     
@@ -466,7 +510,7 @@ def ridergender( url, judges ):
 def saveresults( myevents, file='output/results.csv' ):
     
     writer = csv.writer(open(file, 'wb'), delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-    writer.writerow(['Event Venue', 'Event NF', 'Event Show Type', 'Event Discipline', 'Event Category', 'Event Starting Date', 'Event End Date', 'Event Indoor', 'Event code', 'Event Prize Money', 'Event Prize Money(CHF)', 'Competition Nr.', 'Competition Rule', 'Competition Name', 'Competition Date', 'Competition Prize Money','Competition Prize Money (CHF)', 'Judge Position', 'Judge First Name', 'Judge Family Name', 'Judge NF', 'Rider Final Position', 'Rider First Name', 'Rider Family Name', 'Rider NF', 'Horse Name', 'Rider Prize Money', 'Rider Prize Money (CHF)', 'Technical Score From Individual Judge', 'Artistic Score From Individual Judge', 'Final Score', 'Judge ID', 'Rider ID'])
+    writer.writerow(['Event Venue', 'Event NF', 'Event Show Type', 'Event Discipline', 'Event Category', 'Event Starting Date', 'Event End Date', 'Event Indoor', 'Event code', 'Event Prize Money', 'Event Prize Money(CHF)', 'Competition Nr.', 'Competition Rule', 'Competition Name', 'Competition Date', 'Competition Prize Money','Competition Prize Money (CHF)', 'Judge Position', 'Judge First Name', 'Judge Family Name', 'Judge NF', 'Rider Final Position', 'Rider First Name', 'Rider Family Name', 'Rider NF', 'Horse Name', 'Rider Prize Money', 'Rider Prize Money (CHF)', 'Technical Score From Individual Judge', 'Artistic Score From Individual Judge', 'Final Score', 'Judge ID', 'Rider ID', 'Horse ID'])
     
     
     for evt in myevents:
@@ -482,15 +526,15 @@ def saveresults( myevents, file='output/results.csv' ):
                     
                     # for each judge, output a line with score
                     
-                    judge_e = compinfo + [ comp['results']['info']['judge_e']['position'], comp['results']['info']['judge_e']['firstname'].encode('utf-8'), comp['results']['info']['judge_e']['lastname'].encode('utf-8'), comp['results']['info']['judge_e']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money']['default'], rider['prize_money']['chf'], rider['judge_e_tech'], rider['judge_e_art'], rider['score'], comp['results']['info']['judge_e']['details']['id'], rider['rider']['id'] ]
+                    judge_e = compinfo + [ comp['results']['info']['judge_e']['position'], comp['results']['info']['judge_e']['firstname'].encode('utf-8'), comp['results']['info']['judge_e']['lastname'].encode('utf-8'), comp['results']['info']['judge_e']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money']['default'], rider['prize_money']['chf'], rider['judge_e_tech'], rider['judge_e_art'], rider['score'], comp['results']['info']['judge_e']['details']['id'], rider['rider']['id'], rider['horse_id'] ]
                     
-                    judge_h = compinfo + [ comp['results']['info']['judge_h']['position'], comp['results']['info']['judge_h']['firstname'].encode('utf-8'), comp['results']['info']['judge_h']['lastname'].encode('utf-8'), comp['results']['info']['judge_h']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money']['default'], rider['prize_money']['chf'], rider['judge_h_tech'], rider['judge_h_art'], rider['score'], comp['results']['info']['judge_h']['details']['id'], rider['rider']['id'] ]
+                    judge_h = compinfo + [ comp['results']['info']['judge_h']['position'], comp['results']['info']['judge_h']['firstname'].encode('utf-8'), comp['results']['info']['judge_h']['lastname'].encode('utf-8'), comp['results']['info']['judge_h']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money']['default'], rider['prize_money']['chf'], rider['judge_h_tech'], rider['judge_h_art'], rider['score'], comp['results']['info']['judge_h']['details']['id'], rider['rider']['id'], rider['horse_id'] ]
                     
-                    judge_c = compinfo + [ comp['results']['info']['judge_c']['position'], comp['results']['info']['judge_c']['firstname'].encode('utf-8'), comp['results']['info']['judge_c']['lastname'].encode('utf-8'), comp['results']['info']['judge_c']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money']['default'], rider['prize_money']['chf'], rider['judge_c_tech'], rider['judge_c_art'], rider['score'], comp['results']['info']['judge_c']['details']['id'], rider['rider']['id'] ]
+                    judge_c = compinfo + [ comp['results']['info']['judge_c']['position'], comp['results']['info']['judge_c']['firstname'].encode('utf-8'), comp['results']['info']['judge_c']['lastname'].encode('utf-8'), comp['results']['info']['judge_c']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money']['default'], rider['prize_money']['chf'], rider['judge_c_tech'], rider['judge_c_art'], rider['score'], comp['results']['info']['judge_c']['details']['id'], rider['rider']['id'], rider['horse_id'] ]
                     
-                    judge_m = compinfo + [ comp['results']['info']['judge_m']['position'], comp['results']['info']['judge_m']['firstname'].encode('utf-8'), comp['results']['info']['judge_m']['lastname'].encode('utf-8'), comp['results']['info']['judge_m']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money']['default'], rider['prize_money']['chf'], rider['judge_m_tech'], rider['judge_m_art'], rider['score'], comp['results']['info']['judge_m']['details']['id'], rider['rider']['id'] ] 
+                    judge_m = compinfo + [ comp['results']['info']['judge_m']['position'], comp['results']['info']['judge_m']['firstname'].encode('utf-8'), comp['results']['info']['judge_m']['lastname'].encode('utf-8'), comp['results']['info']['judge_m']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money']['default'], rider['prize_money']['chf'], rider['judge_m_tech'], rider['judge_m_art'], rider['score'], comp['results']['info']['judge_m']['details']['id'], rider['rider']['id'], rider['horse_id'] ] 
                     
-                    judge_b = compinfo + [ comp['results']['info']['judge_b']['position'], comp['results']['info']['judge_b']['firstname'].encode('utf-8'), comp['results']['info']['judge_b']['lastname'].encode('utf-8'), comp['results']['info']['judge_b']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money']['default'], rider['prize_money']['chf'], rider['judge_b_tech'], rider['judge_b_art'], rider['score'], comp['results']['info']['judge_b']['details']['id'], rider['rider']['id'] ]
+                    judge_b = compinfo + [ comp['results']['info']['judge_b']['position'], comp['results']['info']['judge_b']['firstname'].encode('utf-8'), comp['results']['info']['judge_b']['lastname'].encode('utf-8'), comp['results']['info']['judge_b']['details']['nf'], rider['position'], rider['firstname'].encode('utf-8'), rider['lastname'].encode('utf-8'), rider['rider']['nf'], rider['horse'].encode('utf-8'), rider['prize_money']['default'], rider['prize_money']['chf'], rider['judge_b_tech'], rider['judge_b_art'], rider['score'], comp['results']['info']['judge_b']['details']['id'], rider['rider']['id'], rider['horse_id'] ]
                     
                     if len(comp['results']['info']['judge_e']['details']['id']) > 0:
                         writer.writerow( clean_row(judge_e) )
@@ -541,7 +585,7 @@ def uniquebyid(items):
     
     return unique
         
-def fetchall(url):
+def fetchall(url,offset=0):
     
     count = pagecount(SEARCH_URL)
     
@@ -550,7 +594,7 @@ def fetchall(url):
     print "fetched -> %d events" % len(myevents) # divide these in to chunks for processing, fetch first batch and save that, then the next
     
     for i in range(0, len(myevents)):
-       print myevents[i]['title'].encode('utf-8')
+       print "%d of %d - %s" % (i+1, len(myevents), myevents[i]['title'].encode('utf-8'))
        
        for pageurl in myevents[i]['urls']:
            myevents[i]['competitions'].append( competitions( pageurl['url'] ) )
@@ -559,21 +603,29 @@ def fetchall(url):
 
 def main():
     
-    myevents = fetchall(SEARCH_URL)
+    #myevents = fetchall(SEARCH_URL)
     
-    saveresults(myevents, "output/results_final.csv")
+    #saveresults(myevents, "output/results_final.csv")
+    
+    
+    #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=91974D4C4A16FFB706B58310CCC70EEA')
     
     #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=840612A1D9AD73D95779AE51DC4FCCF0')
     #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=21E1D66E5EAF3EFA6C8A9438A68DDBF6')
     #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=21E1D66E5EAF3EFA6C8A9438A68DDBF6')
-    #https://data.fei.org/Calendar/EventDetail.aspx?p=A37A41ABD93704BE0C58F4E6F1F4F3C2
+    #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=A37A41ABD93704BE0C58F4E6F1F4F3C2')
+    #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=9F2076363BC5412136A34220EEE4AF25')
+    
+    comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=9F100A25C1F4091D9A68AE9543B1C077')
+    
+    #print fetch_horse_details('https://data.fei.org/Horse/Detail.aspx?p=3FEB228C8E5704AD4FEFA32023CC8C91')
     
     #https://data.fei.org/Result/ResultList.aspx?p=FD61305C26C56C44D057820205C56F91398B97560726BEDF84FB277F5BB21799
     
     #details = fetch_rider_details('https://data.fei.org/Person/Detail.aspx?p=A77A9DEDEC6686C3865DF12347853E2E')         
     
-    saveriders()
-    savejudges()
+    #saveriders()
+    #savejudges()
     
     print '\a'
     
