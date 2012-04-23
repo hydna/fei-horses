@@ -329,7 +329,7 @@ def clean_output(data):
     
     return data.replace(",", "").replace("|", "")
 
-def exit(row):
+def clean_row(row):
     
     for i in range(0,len(row)):
         row[i] = fix_encoding(clean_output(row[i]))
