@@ -9,6 +9,7 @@ import csv
 import time
 import urllib2
 import datetime
+import chardet
 
 #time.sleep (.5); # sleep for .5 seconds
 
@@ -328,10 +329,10 @@ def clean_output(data):
     
     return data.replace(",", "").replace("|", "")
 
-def clean_row(row):
+def exit(row):
     
     for i in range(0,len(row)):
-        row[i] = clean_output(row[i])
+        row[i] = fix_encoding(clean_output(row[i]))
     
     return row
     
@@ -516,7 +517,7 @@ def saveresults( myevents, file='output/results.csv' ):
     
     
     for evt in myevents:
-        print evt['title']
+        print fix_encoding(evt['title'])
         
         for complist in evt['competitions']:
             
@@ -650,7 +651,7 @@ def fetchall_chunked( myevents, offset=0, chunksize=10):
     eventchunk = []
     
     for i in range(offset,range_end):
-        print "%d of %d - %s" % (i, len(myevents), myevents[i]['title'])
+        print "%d of %d - %s" % (i, len(myevents), fix_encoding(myevents[i]['title']))
         
         anevent = { 'title': myevents[i]['title'], 'country': myevents[i]['country'], 'urls': myevents[i]['urls'], 'competitions': [] }
         
@@ -676,12 +677,18 @@ def fetchall(url):
     print "fetched -> %d events" % len(myevents) # divide these in to chunks for processing, fetch first batch and save that, then the next
     
     for i in range(0, 1):
-       print "%d of %d - %s" % (i+1, len(myevents), myevents[i]['title'].encode('utf-8'))
+       print "%d of %d - %s" % (i+1, len(myevents), fix_encoding(myevents[i]['title']))
        
        for pageurl in myevents[i]['urls']:
            myevents[i]['competitions'].append( competitions( pageurl['url'] ) )
     
     return myevents
+
+def fix_encoding(thestr):
+    encoding = chardet.detect(thestr)
+    if encoding['encoding'] == 'ascii':
+        return thestr.encode('utf-8')
+    return thestr
 
 def main():
     
