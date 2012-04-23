@@ -8,6 +8,8 @@ import re
 import csv
 import time
 import urllib2
+import datetime
+
 #time.sleep (.5); # sleep for .5 seconds
 
 # 1. do search on dressage disipline
@@ -514,7 +516,7 @@ def saveresults( myevents, file='output/results.csv' ):
     
     
     for evt in myevents:
-        print evt['title'].encode('utf-8')
+        print evt['title']
         
         for complist in evt['competitions']:
             
@@ -584,16 +586,96 @@ def uniquebyid(items):
             unique.append(items[i])
     
     return unique
+    
+def save_events(items):
+    
+    now = datetime.datetime.now()
+    
+    filename = "output/events_%i.%i.%.i.csv" % (now.day, now.month, now.year)
+    
+    writer = csv.writer(open(filename, 'wb'), delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(['Venue', 'Country', 'URLS'])
+    
+    for item in items:
         
-def fetchall(url,offset=0):
+        urls = []
+        
+        for url in item['urls']:
+            urls.append(url['url'])
+        
+        writer.writerow(clean_row([ item['title'].encode("utf-8"), item['country'].encode("utf-8"), ";".join(urls) ]))
+    
+        
+def load_events(file):
+    
+    myevents = []
+    
+    reader = csv.reader(open(file, 'rb'), delimiter=',', quotechar='|')
+    
+    firstrow = True
+    
+    for row in reader:
+        if firstrow:
+            firstrow = False
+        else:
+            rawurls = row[2].split(";")
+            urls = []
+            for u in rawurls:
+                urls.append({'title': row[0], 'url': u })
+            myevents.append({'title': row[0], 'country': row[1], 'urls': urls, 'competitions': [] })
+    
+    return myevents
+    
+def fetchall_chunked_from_file(eventfile, offset=0):
+    
+    myevents = load_events(eventfile)
+    
+    fetchall_chunked( myevents, offset )
+        
+def fetchall_chunked( myevents, offset=0, chunksize=10):
+    
+    count = len(myevents)
+    
+    if offset == count:
+        print "All done!"
+        return
+    
+    range_end = offset+chunksize
+    
+    if range_end > count:
+        range_end = count
+        
+    print "fetching chunk %i to %i" % (offset, range_end)
+    
+    eventchunk = []
+    
+    for i in range(offset,range_end):
+        print "%d of %d - %s" % (i, len(myevents), myevents[i]['title'])
+        
+        anevent = { 'title': myevents[i]['title'], 'country': myevents[i]['country'], 'urls': myevents[i]['urls'], 'competitions': [] }
+        
+        for pageurl in myevents[i]['urls']:
+            
+            anevent['competitions'].append( competitions( pageurl['url'] ) )
+        
+        eventchunk.append( anevent )
+    
+    saveriders()
+    savejudges()
+        
+    saveresults(eventchunk, "output/results_%i_%i.csv" % (offset, range_end) )
+    
+    fetchall_chunked( myevents, range_end )
+        
+def fetchall(url):
     
     count = pagecount(SEARCH_URL)
     
-    myevents = events(SEARCH_URL, count)
+    myevents = events(SEARCH_URL, 1)
     
     print "fetched -> %d events" % len(myevents) # divide these in to chunks for processing, fetch first batch and save that, then the next
     
-    for i in range(0, len(myevents)):
+    for i in range(0, 1):
        print "%d of %d - %s" % (i+1, len(myevents), myevents[i]['title'].encode('utf-8'))
        
        for pageurl in myevents[i]['urls']:
@@ -603,9 +685,18 @@ def fetchall(url,offset=0):
 
 def main():
     
+    #count = pagecount(SEARCH_URL)
+    
+    #myevents = events(SEARCH_URL, count)
+
+    #save_events(myevents)
+    
+    fetchall_chunked_from_file("output/events_22.4.2012.csv", 30)
+    
+    
     #myevents = fetchall(SEARCH_URL)
     
-    #saveresults(myevents, "output/results_final.csv")
+    #saveresults(myevents, "output/results_lol.csv")
     
     
     #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=91974D4C4A16FFB706B58310CCC70EEA')
@@ -616,7 +707,7 @@ def main():
     #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=A37A41ABD93704BE0C58F4E6F1F4F3C2')
     #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=9F2076363BC5412136A34220EEE4AF25')
     
-    comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=9F100A25C1F4091D9A68AE9543B1C077')
+    #comps = competitions('https://data.fei.org/Calendar/EventDetail.aspx?p=9F100A25C1F4091D9A68AE9543B1C077')
     
     #print fetch_horse_details('https://data.fei.org/Horse/Detail.aspx?p=3FEB228C8E5704AD4FEFA32023CC8C91')
     
