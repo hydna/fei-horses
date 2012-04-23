@@ -689,6 +689,26 @@ def fix_encoding(thestr):
     if encoding['encoding'] == 'ascii':
         return thestr.encode('utf-8')
     return thestr
+    
+def merge_files(files, filename, header):
+
+    rows = []
+
+    for f in files:
+        reader = csv.reader(open(f, "rb"))
+
+        firstline = True
+
+        for row in reader:
+            if !firstline:
+                rows.append(row)
+            else:
+                firstline = False
+
+
+    writer = csv.writer(open(filename, "wb"))
+    writer.writerows("\n".join(rows))
+    writer.writerows("\n".join(rows))
 
 def main():
     
@@ -698,7 +718,7 @@ def main():
 
     #save_events(myevents)
     
-    fetchall_chunked_from_file("output/events_22.4.2012.csv", 30)
+    fetchall_chunked_from_file("output/events_22.4.2012.csv", 240)
     
     
     #myevents = fetchall(SEARCH_URL)
