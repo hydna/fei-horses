@@ -1,3 +1,8 @@
+#!/usr/bin/python
+# -*- coding: iso-8859-15 -*-
+
+# IMPORTANT 300-310 NEEDS TO BE FIXED
+          
 from bs4 import BeautifulSoup
 import mechanize
 import os.path
@@ -685,9 +690,15 @@ def fetchall(url):
     return myevents
 
 def fix_encoding(thestr):
-    encoding = chardet.detect(thestr)
-    if encoding['encoding'] == 'ascii':
-        return thestr.encode('utf-8')
+
+    #encoding = chardet.detect(thestr)
+    #print encoding['encoding']
+    #if encoding['encoding'].lower() == 'utf-8':
+    #    print "utf-8"
+    #    return thestr
+    #print "not utf-8"
+    #return thestr.encode("utf8")
+    
     return thestr
     
 def merge_files(files, filename, header):
@@ -700,7 +711,7 @@ def merge_files(files, filename, header):
         firstline = True
 
         for row in reader:
-            if !firstline:
+            if firstline == False:
                 rows.append(row)
             else:
                 firstline = False
@@ -718,8 +729,16 @@ def main():
 
     #save_events(myevents)
     
-    fetchall_chunked_from_file("output/events_22.4.2012.csv", 240)
+    fetchall_chunked_from_file("output/events_22.4.2012.csv", 310)
     
+    #lol = "hejsanÄ"
+    #u = unicode( lol, "utf-8" )
+    
+    #u.encode("utf-8")
+
+    #print fix_encoding(lol)
+    
+    #fix_encoding(temp)
     
     #myevents = fetchall(SEARCH_URL)
     
