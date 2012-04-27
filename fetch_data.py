@@ -351,7 +351,7 @@ def browse(url):
     br.set_handle_redirect(True)
     
     try:
-        br.open(url)
+        myresp = br.open(url)
     except urllib2.URLError as e:
         print e.reason
         time.sleep (2);
@@ -369,7 +369,7 @@ def fetch_horse_details(url):
     if len(tds) > 1:
         return tds[1].contents[0].strip()
     
-    print ''
+    return ''
 
 def fetch_rider_details(url):
     
@@ -638,7 +638,7 @@ def fetchall_chunked_from_file(eventfile, offset=0):
     
     fetchall_chunked( myevents, offset )
         
-def fetchall_chunked( myevents, offset=0, chunksize=10):
+def fetchall_chunked( myevents, offset=0, chunksize=1):
     
     count = len(myevents)
     
@@ -691,15 +691,16 @@ def fetchall(url):
 
 def fix_encoding(thestr):
 
-    #encoding = chardet.detect(thestr)
-    #print encoding['encoding']
-    #if encoding['encoding'].lower() == 'utf-8':
-    #    print "utf-8"
-    #    return thestr
-    #print "not utf-8"
-    #return thestr.encode("utf8")
+    encoding = chardet.detect(thestr)
+    print encoding['encoding']
     
-    return thestr
+    if encoding['encoding'] is not None:
+        if encoding['encoding'].lower() == 'utf-8':
+            return thestr
+        
+        return thestr.decode(encoding['encoding']).encode("utf-8")
+    
+    return thestr.encode("utf-8")
     
 def merge_files(files, filename, header):
 
@@ -729,7 +730,7 @@ def main():
 
     #save_events(myevents)
     
-    fetchall_chunked_from_file("output/events_22.4.2012.csv", 310)
+    fetchall_chunked_from_file("output/events_22.4.2012.csv", 306)
     
     #lol = "hejsanÄ"
     #u = unicode( lol, "utf-8" )
