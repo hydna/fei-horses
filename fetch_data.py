@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: iso-8859-15 -*-
+# -*- coding: utf-8 -*-
 
 # IMPORTANT 300-310 NEEDS TO BE FIXED
           
@@ -269,7 +269,14 @@ def results( url, page ):
         else:
             horse_name = row.contents[4].span['title']
         
-        competitors.append({'position': row.contents[1].a['title'], 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': horse_name, 'horse_id': horse_id, 'prize_money': parse_prize_money(row.contents[5].contents[0].strip()), 'judge_e_score': e_score['tech'], 'judge_e_tech': e_score['tech'], 'judge_e_art': e_score['art'], 'judge_h_score': h_score['tech'], 'judge_h_tech': h_score['tech'], 'judge_h_art': h_score['art'], 'judge_c_score': c_score['tech'], 'judge_c_tech': c_score['tech'], 'judge_c_art': c_score['art'],'judge_m_score': m_score['tech'], 'judge_m_tech': m_score['tech'], 'judge_m_art': m_score['art'], 'judge_b_score': b_score['tech'], 'judge_b_tech': b_score['tech'], 'judge_b_art': b_score['art'], 'score': f_score['tech'], 'rider': rider_details })
+        position = ''
+        
+        try:
+            position = row.contents[1].a['title']
+        except:
+            pass
+        
+        competitors.append({'position': position, 'firstname': rider['firstname'], 'lastname': rider['lastname'], 'country': rider['country'], 'horse': horse_name, 'horse_id': horse_id, 'prize_money': parse_prize_money(row.contents[5].contents[0].strip()), 'judge_e_score': e_score['tech'], 'judge_e_tech': e_score['tech'], 'judge_e_art': e_score['art'], 'judge_h_score': h_score['tech'], 'judge_h_tech': h_score['tech'], 'judge_h_art': h_score['art'], 'judge_c_score': c_score['tech'], 'judge_c_tech': c_score['tech'], 'judge_c_art': c_score['art'],'judge_m_score': m_score['tech'], 'judge_m_tech': m_score['tech'], 'judge_m_art': m_score['art'], 'judge_b_score': b_score['tech'], 'judge_b_tech': b_score['tech'], 'judge_b_art': b_score['art'], 'score': f_score['tech'], 'rider': rider_details })
     
     
     
@@ -327,6 +334,9 @@ def parse_score(score):
 def parse_dof(dof):
     
     parts = dof.split("/")
+    
+    if len(parts) < 3:
+        return {'d': '','m': '','y': '' }
     
     return {'d': parts[0],'m': parts[1],'y': parts[2] }
 
@@ -638,7 +648,7 @@ def fetchall_chunked_from_file(eventfile, offset=0):
     
     fetchall_chunked( myevents, offset )
         
-def fetchall_chunked( myevents, offset=0, chunksize=1):
+def fetchall_chunked( myevents, offset=0, chunksize=10):
     
     count = len(myevents)
     
@@ -685,14 +695,24 @@ def fetchall(url):
        print "%d of %d - %s" % (i+1, len(myevents), fix_encoding(myevents[i]['title']))
        
        for pageurl in myevents[i]['urls']:
+           print pageurl['url']
            myevents[i]['competitions'].append( competitions( pageurl['url'] ) )
     
     return myevents
 
 def fix_encoding(thestr):
-
-    encoding = chardet.detect(thestr)
-    print encoding['encoding']
+    
+    try:
+        return thestr.encode("utf-8")
+    except:
+        return thestr
+    
+    try:
+        encoding = chardet.detect(thestr)
+        print encoding['encoding']
+    except:
+        print "unknown encoding of %s" % thestr
+        return thestr.decode("utf-8").encode("utf-8")
     
     if encoding['encoding'] is not None:
         if encoding['encoding'].lower() == 'utf-8':
@@ -730,7 +750,9 @@ def main():
 
     #save_events(myevents)
     
-    fetchall_chunked_from_file("output/events_22.4.2012.csv", 306)
+    # now start at 306
+    
+    fetchall_chunked_from_file("output/events_22.4.2012.csv", 326)
     
     #lol = "hejsanÄ"
     #u = unicode( lol, "utf-8" )
