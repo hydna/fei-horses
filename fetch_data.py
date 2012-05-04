@@ -257,9 +257,12 @@ def results( url, page ):
                 
             offset-=1
         
-        rider = parse_name(row.contents[3].a.contents[0].strip())
+        rider = { 'firstname': '', 'lastname': '', 'country': '' }
+        rider_details = {'league': '', 'firstname': '', 'lastname': '', 'gender': '', 'nationality': '', 'dof': {'y': '', 'm': '', 'd': ''}, 'id': '', 'nf': '', 'competingfor': ''}
         
-        rider_details = fetch_rider_details(row.contents[3].a['href'])
+        if row.contents[3].a is not None:
+            rider = parse_name(row.contents[3].a.contents[0].strip())
+            rider_details = fetch_rider_details(row.contents[3].a['href'])
         
         horse_name = ''
         horse_id = ''
@@ -620,8 +623,8 @@ def save_events(items):
             urls.append(url['url'])
         
         writer.writerow(clean_row([ item['title'].encode("utf-8"), item['country'].encode("utf-8"), ";".join(urls) ]))
-    
-        
+
+
 def load_events(file):
     
     myevents = []
@@ -647,7 +650,7 @@ def fetchall_chunked_from_file(eventfile, offset=0):
     myevents = load_events(eventfile)
     
     fetchall_chunked( myevents, offset )
-        
+
 def fetchall_chunked( myevents, offset=0, chunksize=10):
     
     count = len(myevents)
@@ -752,7 +755,7 @@ def main():
     
     # now start at 306
     
-    fetchall_chunked_from_file("output/events_22.4.2012.csv", 326)
+    fetchall_chunked_from_file("output/events_22.4.2012.csv", 556)
     
     #lol = "hejsanÄ"
     #u = unicode( lol, "utf-8" )
