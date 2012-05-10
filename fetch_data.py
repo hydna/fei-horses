@@ -1,7 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
-# IMPORTANT 300-310 NEEDS TO BE FIXED
           
 from bs4 import BeautifulSoup
 import mechanize
@@ -724,26 +722,7 @@ def fix_encoding(thestr):
         return thestr.decode(encoding['encoding']).encode("utf-8")
     
     return thestr.encode("utf-8")
-    
-def merge_files(files, filename, header):
 
-    rows = []
-
-    for f in files:
-        reader = csv.reader(open(f, "rb"))
-
-        firstline = True
-
-        for row in reader:
-            if firstline == False:
-                rows.append(row)
-            else:
-                firstline = False
-
-
-    writer = csv.writer(open(filename, "wb"))
-    writer.writerows("\n".join(rows))
-    writer.writerows("\n".join(rows))
 
 def main():
     
@@ -755,7 +734,7 @@ def main():
     
     # now start at 306
     
-    fetchall_chunked_from_file("output/events_22.4.2012.csv", 556)
+    fetchall_chunked_from_file("output/events_22.4.2012.csv", 0)
     
     #lol = "hejsanÄ"
     #u = unicode( lol, "utf-8" )
